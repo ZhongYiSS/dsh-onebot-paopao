@@ -105,7 +105,7 @@ test('时段能认出深夜', () => {
 
 const mkProfile = (over = {}) => ({
   id: 'p1', name: '日常档', mode: 'daily',
-  threshold: 30, risePerHour: 6, triggerPmax: 1, releaseBase: 20, releaseSpan: 40,
+  threshold: 30, risePerTick: 0.5, triggerPmax: 1, releaseBase: 20, releaseSpan: 40,
   limitHours: 3, limitMax: 2, tickMinutes: 5, idleMinutes: 0,
   quiet: { enabled: false, from: '00:00', to: '07:00' },
   pool: [{ id: 'chat', label: '说句话', weight: 100, bonus: 5, enabled: true }],
@@ -145,8 +145,8 @@ test('tick：低于阈值不动，高于阈值必中时走完整链路', async (
     const r2 = await ticker.tick('private:1', { force: true })
     assert.equal(r2.ok, true)
     assert.equal(r2.event, 'chat')
-    assert.equal(r2.w1, 65)
-    assert.equal(r2.w2, 25)
+    assert.equal(r2.w1, 65.5)   // 60 + 每拍 0.5 + 事件加分 5
+    assert.equal(r2.w2, 25.5)   // 扣 20 + 兴趣分 50% × 40 = 40
     const hist = readHistory(home, 5)
     assert.equal(hist.length, 1)
     assert.equal(hist[0].event, 'chat')
@@ -207,6 +207,40 @@ test('tick：干跑开关从 plan 传到投递（不然永远发不出去）', a
     assert.equal(r.ok, true)
     assert.equal(seen.length, 1)
     assert.equal(seen[0].dryRun, false, '投递拿到的 cfg 里必须有 dryRun:false')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('tick：每拍涨 risePerTick，没到点的那一拍不涨', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const profile = mkProfile({ risePerTick: 2, threshold: 99 })
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile),
+      getHome: () => home,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => now,
+      rnd: () => 0.99,
+    })
+
+    // 第一拍：0 → 2，但离阈值 99 还远
+    const r1 = await ticker.tick('private:1', { force: true })
+    assert.equal(r1.skipped, 'below')
+    assert.equal(r1.w0, 0)
+    let b = bucketOf(readBuckets(home, 'private:1'), 'private:1')
+    assert.equal(b.w, 2)
+
+    // 不 force 且没到下一拍：notyet，权重不动
+    const buckets = readBuckets(home, 'private:1')
+    bucketOf(buckets, 'private:1').lastTickAt = now
+    writeBuckets(home, buckets)
+    const r2 = await ticker.tick('private:1')
+    assert.equal(r2.skipped, 'notyet')
+    b = bucketOf(readBuckets(home, 'private:1'), 'private:1')
+    assert.equal(b.w, 2, '没到点的那一拍不能涨')
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
