@@ -183,3 +183,31 @@ test('tick：限流挡住第二条', async () => {
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('tick：干跑开关从 plan 传到投递（不然永远发不出去）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const buckets = readBuckets(home, 'private:1')
+    const b = bucketOf(buckets, 'private:1')
+    b.w = 80
+    b.lastRiseAt = now
+    writeBuckets(home, buckets)
+
+    const seen = []
+    const ticker = createTicker({
+      getPlan: () => ({ ...mkPlan(mkProfile()), dryRun: false }),
+      getHome: () => home,
+      deliver: async (arg) => { seen.push(arg.cfg); return { ok: true, mode: 'qq' } },
+      now: () => now,
+      rnd: () => 0,
+    })
+    const r = await ticker.tick('private:1', { force: true })
+    assert.equal(r.ok, true)
+    assert.equal(seen.length, 1)
+    assert.equal(seen[0].dryRun, false, '投递拿到的 cfg 里必须有 dryRun:false')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
