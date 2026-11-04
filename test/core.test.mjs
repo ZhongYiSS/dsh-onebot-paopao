@@ -131,8 +131,8 @@ test('tick：低于阈值不动，高于阈值必中时走完整链路', async (
       rnd: () => 0,   // 掷骰永远命中
     })
 
-    // 权重 0、阈值 30 ⇒ 不动
-    const r1 = await ticker.tick('private:1', { force: true })
+    // 权重 0、阈值 30 ⇒ 不动（手动抽才无视门槛，这里走自动那一拍）
+    const r1 = await ticker.tick('private:1')
     assert.equal(r1.skipped, 'below')
 
     // 手动把权重拉到 60 再跑
@@ -177,7 +177,7 @@ test('tick：限流挡住第二条', async () => {
       now: () => now,
       rnd: () => 0,
     })
-    const r = await ticker.tick('private:1', { force: true })
+    const r = await ticker.tick('private:1')
     assert.equal(r.skipped, 'limit')
   } finally {
     rmSync(home, { recursive: true, force: true })
@@ -226,8 +226,8 @@ test('tick：每拍涨 risePerTick，没到点的那一拍不涨', async () => {
       rnd: () => 0.99,
     })
 
-    // 第一拍：0 → 2，但离阈值 99 还远
-    const r1 = await ticker.tick('private:1', { force: true })
+    // 第一拍：0 → 2，但离阈值 99 还远（走自动那一拍）
+    const r1 = await ticker.tick('private:1')
     assert.equal(r1.skipped, 'below')
     assert.equal(r1.w0, 0)
     let b = bucketOf(readBuckets(home, 'private:1'), 'private:1')
@@ -241,6 +241,38 @@ test('tick：每拍涨 risePerTick，没到点的那一拍不涨', async () => {
     assert.equal(r2.skipped, 'notyet')
     b = bucketOf(readBuckets(home, 'private:1'), 'private:1')
     assert.equal(b.w, 2, '没到点的那一拍不能涨')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('tick：手动「抽一发」无视阈值 / 掷骰 / 免打扰 / 限流', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const buckets = readBuckets(home, 'private:1')
+    const b = bucketOf(buckets, 'private:1')
+    b.w = 0
+    b.window = [now - 60_000, now - 30_000]   // 窗口已经满了
+    writeBuckets(home, buckets)
+
+    const profile = mkProfile({
+      threshold: 99, triggerPmax: 0.01, limitMax: 1, limitHours: 3, idleMinutes: 600,
+      quiet: { enabled: true, from: '00:00', to: '23:59' },
+    })
+    let delivered = 0
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile),
+      getHome: () => home,
+      idleCheck: async () => false,
+      deliver: async () => { delivered += 1; return { ok: true, mode: 'dry' } },
+      now: () => now,
+      rnd: () => 0.999,
+    })
+    const r = await ticker.tick('private:1', { force: true })
+    assert.equal(r.ok, true, '手动抽必须真跑，不能被门槛挡')
+    assert.equal(delivered, 1)
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
