@@ -301,3 +301,56 @@ test('tick：手动「抽一发」无视阈值 / 掷骰 / 免打扰 / 限流', a
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('兴趣分：[SCORE n] 读得出、剥得干净', async () => {
+  const { readScore, stripVerdict } = await import('../lib/companion/prompt.mjs')
+  assert.equal(readScore('今天好累 [SCORE 8]'), 80)
+  assert.equal(readScore('[score 0]'), 0)
+  assert.equal(readScore('[SCORE 10]'), 100)
+  assert.equal(readScore('[SCORE 12]'), 100)   // 超 10 按 10 算
+  assert.equal(readScore('没有分'), null)
+  assert.equal(stripVerdict('正文 [SCORE 8] [HOLD]'), '正文')
+})
+
+test('tick：下一拍按她打的兴趣分补扣（50 分不动）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const profile = mkProfile()
+    let scored = null
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile),
+      getHome: () => home,
+      scoreOf: () => scored,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => now,
+      rnd: () => 0,
+    })
+
+    const buckets = readBuckets(home, 'private:1')
+    const b = bucketOf(buckets, 'private:1')
+    b.w = 100
+    b.window = []
+    b.lastTriggerAt = now - 60_000   // 上一轮是一分钟前发的
+    writeBuckets(home, buckets)
+
+    // 她给自己打了满分 → 比按 50 分多扣 span 的一半（40 × 50% = 20）
+    scored = { score: 100, at: now + 1 }
+    const r = await ticker.tick('private:1', { force: true })
+    assert.equal(r.score, 100)
+    assert.equal(r.scoreDelta, -20)
+    assert.equal(r.w0, 100)
+
+    // 同一个分数不会被吃第二遍
+    const r2 = await ticker.tick('private:1', { force: true })
+    assert.equal(r2.score, undefined)
+
+    // 隔太久的分数不算（平时聊天她也每轮打分，那种不该算到泡泡头上）
+    scored = { score: 0, at: now + 30 * 60_000 }
+    const r3 = await ticker.tick('private:1', { force: true })
+    assert.equal(r3.score, undefined)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
