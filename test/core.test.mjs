@@ -32,6 +32,11 @@ test('阈值与概率都是单调的', () => {
   const c = triggerChance(100, 30)
   assert.ok(a > 0 && a < b && b < c)
   assert.ok(c <= 0.12 + 1e-9)
+  // 11-05 新口径：p = (w / 100) × pmax；阈值以下仍是 0
+  assert.ok(Math.abs(triggerChance(50, 30, 0.5) - 0.25) < 1e-9)
+  assert.ok(Math.abs(triggerChance(30, 30, 0.12) - 0.036) < 1e-9)
+  assert.ok(Math.abs(triggerChance(100, 30, 0.5) - 0.5) < 1e-9)
+  assert.equal(triggerChance(29.9, 30, 1), 0)
 })
 
 test('开口后释放：兴趣分越高掉得越多', () => {
