@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { clamp, riseByTime, canSpeak, triggerChance, release, addBonus } from '../lib/companion/weight.mjs'
+import { clamp, riseByTime, canSpeak, triggerChance, release, releaseFactor, addBonus } from '../lib/companion/weight.mjs'
 import { drawEvent, normalizePercent, EVENT_POOL, mergePool } from '../lib/companion/events.mjs'
 import { pruneWindow, canTrigger, countInWindow } from '../lib/companion/limit.mjs'
 import { inQuiet, periodOf, parseHM } from '../lib/companion/period.mjs'
@@ -39,11 +39,18 @@ test('阈值与概率都是单调的', () => {
   assert.equal(triggerChance(29.9, 30, 1), 0)
 })
 
-test('开口后释放：兴趣分越高掉得越多', () => {
-  const low = release(80, 0, { base: 20, span: 40 })
-  const high = release(80, 100, { base: 20, span: 40 })
-  assert.equal(low, 60)
-  assert.equal(high, 20)
+test('开口后释放：10 分不扣、5 分标准、1 分双倍', () => {
+  const p5 = release(80, 50, { base: 20 })
+  const p10 = release(80, 100, { base: 20 })
+  const p1 = release(80, 10, { base: 20 })
+  const p0 = release(80, 0, { base: 20 })
+  assert.equal(p5, 60)
+  assert.equal(p10, 80)
+  assert.equal(p1, 40)
+  assert.equal(p0, 40) // 0 分也封顶在双倍
+  assert.ok(Math.abs(releaseFactor(80) - 0.4) < 1e-9)
+  assert.ok(Math.abs(releaseFactor(60) - 0.8) < 1e-9)
+  assert.ok(Math.abs(releaseFactor(20) - 1.75) < 1e-9)
 })
 
 test('事件加分夹住上限', () => {
@@ -129,7 +136,7 @@ test('时段能认出深夜', () => {
 
 const mkProfile = (over = {}) => ({
   id: 'p1', name: '日常档', mode: 'daily',
-  threshold: 30, risePerTick: 0.5, triggerPmax: 1, releaseBase: 20, releaseSpan: 40,
+  threshold: 30, risePerTick: 0.5, triggerPmax: 1, releaseBase: 20,
   limitHours: 3, limitMax: 2, tickMinutes: 5, idleMinutes: 0,
   quiet: { enabled: false, from: '00:00', to: '07:00' },
   pool: [{ id: 'chat', label: '说句话', weight: 100, bonus: 5, enabled: true }],
@@ -170,7 +177,7 @@ test('tick：低于阈值不动，高于阈值必中时走完整链路', async (
     assert.equal(r2.ok, true)
     assert.equal(r2.event, 'chat')
     assert.equal(r2.w1, 65.5)   // 60 + 每拍 0.5 + 事件加分 5
-    assert.equal(r2.w2, 25.5)   // 扣 20 + 兴趣分 50% × 40 = 40
+    assert.equal(r2.w2, 45.5)   // 标准扣 20（5 分系数 1）
     const hist = readHistory(home, 5)
     assert.equal(hist.length, 1)
     assert.equal(hist[0].event, 'chat')
@@ -335,11 +342,11 @@ test('tick：下一拍按她打的兴趣分补扣（50 分不动）', async () =
     b.lastTriggerAt = now - 60_000   // 上一轮是一分钟前发的
     writeBuckets(home, buckets)
 
-    // 她给自己打了满分 → 比按 50 分多扣 span 的一半（40 × 50% = 20）
+    // 她给自己打了满分 → 系数 0，把投递时按 5 分扣的那一下整个还回来（+20）
     scored = { score: 100, at: now + 1 }
     const r = await ticker.tick('private:1', { force: true })
     assert.equal(r.score, 100)
-    assert.equal(r.scoreDelta, -20)
+    assert.equal(r.scoreDelta, 20)
     assert.equal(r.w0, 100)
 
     // 同一个分数不会被吃第二遍
