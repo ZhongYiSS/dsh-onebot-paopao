@@ -10,6 +10,8 @@ import { pruneWindow, canTrigger, countInWindow } from '../lib/companion/limit.m
 import { inQuiet, periodOf, parseHM } from '../lib/companion/period.mjs'
 import { readState, readHistory, dayKeyOf } from '../lib/companion/state.mjs'
 import { createTicker } from '../lib/companion/tick.mjs'
+import { parseMessage, xmlSummary } from '../lib/cq.js'
+import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/link-expand.js'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -360,4 +362,63 @@ test('tick：下一拍按她打的兴趣分补扣（50 分不动）', async () =
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
+})
+
+test('xml 卡片抠得出标题/描述/链接，空的退回 [卡片]', () => {
+  const xml = `<?xml version='1.0'?><msg serviceID="1" brief="[分享] 深海鲸歌" url="https://b23.tv/AbCd12">` +
+    `<item layout="2"><title>深海鲸歌</title><summary>一条很安静的助眠视频 &amp; 白噪音</summary></item>` +
+    `<source name="哔哩哔哩"/></msg>`
+  const out = xmlSummary(xml)
+  assert.match(out, /^\[卡片:/)
+  assert.ok(out.includes('深海鲸歌'))
+  assert.ok(out.includes('& 白噪音'))       // 实体反转义
+  assert.ok(out.includes('https://b23.tv/AbCd12'))
+  assert.equal(xmlSummary(''), '[卡片]')
+  assert.equal(xmlSummary('<msg brief="[分享] 只有标题"></msg>'), '[卡片:只有标题]')
+
+  // 段级：xml 不再只剩 [xml]，share 的 url 也不丢
+  const p = parseMessage([{ type: 'xml', data: { data: xml } }], '')
+  assert.ok(p.text.includes('深海鲸歌'))
+  assert.ok(!p.text.includes('[xml]'))
+  const s = parseMessage([{ type: 'share', data: { title: '一条视频', url: 'https://b23.tv/x1' } }], '')
+  assert.equal(s.text, '[分享:一条视频 | https://b23.tv/x1]')
+})
+
+test('B站 链接：认得出 BV / 短链，展开成一句人话并缓存', async () => {
+  assert.equal(formatDuration(205), '3:25')
+  assert.equal(formatDuration(3725), '1:02:05')
+  assert.equal(formatCount(123456), '12.3万')
+
+  const text = '看这个 https://b23.tv/AbCd12 还有 BV1xx411c7mD 重复 BV1xx411c7mD'
+  const refs = findBiliRefs(text)
+  assert.equal(refs.length, 2)
+  assert.equal(refs[0].kind, 'short')          // 按出现顺序，短链在前
+  assert.equal(refs[1].bvid, 'BV1xx411c7mD')   // 重复的 BV 只留一次
+
+  let calls = 0
+  const fake = async (url) => {
+    calls++
+    if (String(url).includes('b23.tv')) {
+      return { headers: { get: () => 'https://www.bilibili.com/video/BV1gVHA6mEbS/?x=1' }, url }
+    }
+    return {
+      json: async () => ({
+        code: 0,
+        data: { title: '深海鲸歌', owner: { name: '某UP' }, duration: 205, stat: { view: 123456 } },
+      }),
+    }
+  }
+  const note = await biliLinkNote(text, { fetchImpl: fake })
+  assert.ok(note.includes('深海鲸歌'))
+  assert.ok(note.includes('UP：某UP'))
+  assert.ok(note.includes('3:25'))
+  assert.ok(note.includes('播放 12.3万'))
+  const before = calls
+  const again = await biliLinkNote(text, { fetchImpl: fake })
+  assert.equal(again, note)
+  assert.equal(calls, before)          // 第二次全走缓存，不再打接口
+
+  // 拿不到就静默，不抛
+  const broken = async () => { throw new Error('boom') }
+  assert.equal(await biliLinkNote('https://b23.tv/zzz', { fetchImpl: broken }), '')
 })
