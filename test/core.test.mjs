@@ -75,6 +75,25 @@ test('mergePool 接得住旧版本存盘', () => {
   assert.ok(merged.some((e) => e.id === 'video'))
 })
 
+test('默认事件只给词，hint 全空', () => {
+  assert.ok(EVENT_POOL.every((e) => e.hint === ''))
+})
+
+test('mergePool 留住自己填的补充', () => {
+  const merged = mergePool([{ id: 'video', hint: '挑短的' }])
+  assert.equal(merged.find((e) => e.id === 'video').hint, '挑短的')
+})
+
+test('话头只递词；填了补充才多说一句', async () => {
+  const { buildHint } = await import('../lib/companion/prompt.mjs')
+  const bare = buildHint({ event: { label: '刷视频', hint: '' } })
+  assert.ok(bare.includes('这一轮的词：刷视频'))
+  assert.ok(!bare.includes('补充：'))
+  assert.ok(!bare.includes('去 B站 搜一轮'))
+  const withHint = buildHint({ event: { label: '刷视频', hint: '挑短的' } })
+  assert.ok(withHint.includes('补充：挑短的'))
+})
+
 test('滑动窗口是真滚动', () => {
   const now = 10 * 3_600_000
   const win = [now - 4 * 3_600_000, now - 1 * 3_600_000]
