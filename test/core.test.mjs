@@ -12,6 +12,7 @@ import { readState, readHistory, dayKeyOf } from '../lib/companion/state.mjs'
 import { createTicker } from '../lib/companion/tick.mjs'
 import { parseMessage, xmlSummary } from '../lib/cq.js'
 import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/link-expand.js'
+import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -421,4 +422,34 @@ test('B站 链接：认得出 BV / 短链，展开成一句人话并缓存', asy
   // 拿不到就静默，不抛
   const broken = async () => { throw new Error('boom') }
   assert.equal(await biliLinkNote('https://b23.tv/zzz', { fetchImpl: broken }), '')
+})
+
+test('链接卡片：news 结构、跳转地址、超长截断', () => {
+  const card = buildNewsCard({
+    title: '深海鲸歌'.repeat(20),        // 超长要截
+    desc: '一条很安静的\n助眠视频',
+    url: 'https://www.bilibili.com/video/BV1gVHA6mEbS',
+    pic: 'https://i0.hdslb.com/a.jpg',
+    tag: '哔哩哔哩',
+  })
+  assert.equal(card.app, 'com.tencent.structmsg')
+  assert.equal(card.view, 'news')
+  const news = card.meta.news
+  assert.ok(news.title.length <= 60)
+  assert.ok(news.title.endsWith('…'))
+  assert.equal(news.desc, '一条很安静的 助眠视频')   // 换行压成空格
+  assert.equal(news.jumpUrl, 'https://www.bilibili.com/video/BV1gVHA6mEbS')
+  assert.equal(news.preview, 'https://i0.hdslb.com/a.jpg')
+  assert.equal(card.prompt, '[分享] ' + news.title)
+
+  // 没给封面就不该有 preview 键（空串会让卡片开天窗）
+  const bare = buildNewsCard({ title: 't', url: 'https://x.y' })
+  assert.equal('preview' in bare.meta.news, false)
+  assert.equal(clampText('  a\n b  ', 10), 'a b')
+
+  // 段：json 里再套一层字符串
+  const segs = cardSegments(card)
+  assert.equal(segs.length, 1)
+  assert.equal(segs[0].type, 'json')
+  assert.equal(JSON.parse(segs[0].data.data).meta.news.title, news.title)
 })
