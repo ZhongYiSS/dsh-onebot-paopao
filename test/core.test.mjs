@@ -61,20 +61,28 @@ test('事件加分夹住上限', () => {
 })
 
 test('事件池百分比合计 100（四舍五入后允许 ±1）', () => {
-  const p = normalizePercent(EVENT_POOL)
+  const p = normalizePercent(EVENT_POOL.map((e) => ({ ...e, label: '词' + e.id })))
   const sum = p.reduce((s, e) => s + e.percent, 0)
   assert.ok(Math.abs(sum - 100) <= 1.5, `合计 ${sum}`)
 })
 
+test('默认事件池的词全空，空词不参与抽签', () => {
+  assert.ok(EVENT_POOL.every((e) => e.label === ''))
+  assert.equal(drawEvent(EVENT_POOL, () => 0.5), null)
+  const withWord = mergePool([{ id: 'chat', label: '说句话', weight: 30 }])
+  assert.equal(drawEvent(withWord, () => 0.01).id, 'chat')
+})
+
 test('抽事件只落在启用项上，并按份数分布', () => {
   const pool = [
-    { id: 'a', weight: 100, enabled: true },
-    { id: 'b', weight: 0, enabled: true },
-    { id: 'c', weight: 100, enabled: false },
+    { id: 'a', label: '甲', weight: 100, enabled: true },
+    { id: 'b', label: '乙', weight: 0, enabled: true },
+    { id: 'c', label: '丙', weight: 100, enabled: false },
+    { id: 'd', label: '', weight: 100, enabled: true },
   ]
   for (let i = 0; i < 50; i++) assert.equal(drawEvent(pool, () => i / 50).id, 'a')
   // 只有 a 能用时，永远 a
-  assert.equal(drawEvent([{ id: 'x', weight: 0, enabled: true }]), null)
+  assert.equal(drawEvent([{ id: 'x', label: '甲', weight: 0, enabled: true }]), null)
 })
 
 test('mergePool 接得住旧版本存盘', () => {
