@@ -13,6 +13,7 @@ import { createTicker } from '../lib/companion/tick.mjs'
 import { parseMessage, xmlSummary } from '../lib/cq.js'
 import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/link-expand.js'
 import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
+import { styleReason } from '../lib/bili-act.js'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -460,4 +461,13 @@ test('链接卡片：news 结构、跳转地址、超长截断', () => {
   assert.equal(segs.length, 1)
   assert.equal(segs[0].type, 'json')
   assert.equal(JSON.parse(segs[0].data.data).meta.news.title, news.title)
+})
+
+test('评论套话闸门：正常话放行，模板/纯表情/空/超长拦下', () => {
+  assert.equal(styleReason('这个布偶被柠檬酸到皱眉的样子，跟周一早上的我一模一样'), '')
+  assert.match(styleReason('首先，这期视频就到这里，感谢观看'), /像模板/)
+  assert.match(styleReason('一键三连'), /像模板/)
+  assert.match(styleReason('😂😂😂'), /只有表情/)
+  assert.match(styleReason('   '), /空的/)
+  assert.match(styleReason('啊'.repeat(400)), /太长了/)
 })
