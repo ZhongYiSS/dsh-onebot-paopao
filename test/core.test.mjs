@@ -496,6 +496,11 @@ test('关「随意聊聊」：带词的长句和整句短话都认，正常句�
   assert.equal(matchCloseChat('这视频停在那了'), false)
   assert.equal(matchCloseChat('关机'), false)
   assert.equal(matchCloseChat('随意聊聊'), false)
+  // 11-07 真事：他说「关闭随意聊聊」时被当成又开了一次窗——关窗词必须认「关闭 / 关一下」。
+  assert.equal(matchCloseChat('关闭随意聊聊'), true)
+  assert.equal(matchCloseChat('关闭'), true)
+  assert.equal(matchCloseChat('关一下随意聊'), true)
+  assert.equal(matchCloseChat('关我什么事，随便聊聊而已'), false)
 })
 
 test('「随意聊聊」开关不替她说话：只递话头（B 方案）', async () => {
