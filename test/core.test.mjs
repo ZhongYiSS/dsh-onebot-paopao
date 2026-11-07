@@ -14,7 +14,7 @@ import { parseMessage, xmlSummary } from '../lib/cq.js'
 import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/link-expand.js'
 import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
-import { matchOpenChat } from '../lib/inbound.js'
+import { matchCloseChat, matchOpenChat } from '../lib/inbound.js'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -484,4 +484,16 @@ test('「随意聊聊」只认发词 + 时长，位置随意', () => {
   assert.equal(matchOpenChat('@钟汐儿 随意聊聊 5 分钟'), 5)
   assert.equal(matchOpenChat('今天吃啥'), null)
   assert.equal(matchOpenChat('陪本鱼聊会儿'), null)
+})
+
+test('关「随意聊聊」：带词的长句和整句短话都认，正常句子不误关', () => {
+  assert.equal(matchCloseChat('停止随意聊聊'), true)
+  assert.equal(matchCloseChat('停下随意聊聊'), true)
+  assert.equal(matchCloseChat('@钟汐儿 别聊了'), true)
+  assert.equal(matchCloseChat('不聊了'), true)
+  assert.equal(matchCloseChat('关掉'), true)
+  assert.equal(matchCloseChat('好了，停止'), true)
+  assert.equal(matchCloseChat('这视频停在那了'), false)
+  assert.equal(matchCloseChat('关机'), false)
+  assert.equal(matchCloseChat('随意聊聊'), false)
 })
