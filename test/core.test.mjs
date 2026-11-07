@@ -14,6 +14,7 @@ import { parseMessage, xmlSummary } from '../lib/cq.js'
 import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/link-expand.js'
 import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
+import { matchOpenChat } from '../lib/inbound.js'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -470,4 +471,17 @@ test('评论套话闸门：正常话放行，模板/纯表情/空/超长拦下',
   assert.match(styleReason('😂😂😂'), /只有表情/)
   assert.match(styleReason('   '), /空的/)
   assert.match(styleReason('啊'.repeat(400)), /太长了/)
+})
+
+test('「随意聊聊」只认发词 + 时长，位置随意', () => {
+  assert.equal(matchOpenChat('随意聊聊'), 0)
+  assert.equal(matchOpenChat('随意聊聊吧'), 0)
+  assert.equal(matchOpenChat('小鱼，随便聊聊两分钟'), 2)
+  assert.equal(matchOpenChat('本鱼，咱们随意聊聊吧，先聊 20 分钟'), 20)
+  assert.equal(matchOpenChat('随便聊聊半小时'), 30)
+  assert.equal(matchOpenChat('随意聊一会儿'), 3)
+  assert.equal(matchOpenChat('随意聊聊两句'), 3)
+  assert.equal(matchOpenChat('@钟汐儿 随意聊聊 5 分钟'), 5)
+  assert.equal(matchOpenChat('今天吃啥'), null)
+  assert.equal(matchOpenChat('陪本鱼聊会儿'), null)
 })
