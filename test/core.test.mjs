@@ -497,3 +497,25 @@ test('关「随意聊聊」：带词的长句和整句短话都认，正常句�
   assert.equal(matchCloseChat('关机'), false)
   assert.equal(matchCloseChat('随意聊聊'), false)
 })
+
+test('「随意聊聊」开关不替她说话：只递话头（B 方案）', async () => {
+  const { InboundPipeline } = await import('../lib/inbound.js')
+  const notes = []
+  const texts = []
+  const ctx = {
+    config: { openChatDefaultMs: 600000, openChatMaxMs: 1200000 },
+    log: () => { },
+    sendToChat: async (_id, t) => { texts.push(t) },
+    dispatchFollowup: async (id, t, role, nick) => { notes.push({ id, t, role, nick }) },
+  }
+  const p = new InboundPipeline(ctx, { now: () => 1_000_000 })
+  const total = await p.startOpenChat('group:1', 10)
+  assert.equal(total, 10)
+  assert.equal(texts.length, 0, '开窗不许发写死的句子')
+  await p.stopOpenChat('group:1', true)
+  assert.equal(texts.length, 0, '关窗也不许')
+  p.nudgeSelf('group:1', '（他对你说「随意聊聊十分钟」。）')
+  assert.equal(notes.length, 1, '话头要走会话，不走 sendToChat')
+  assert.equal(notes[0].role, 'admin')
+  assert.ok(notes[0].t.includes('随意聊聊'))
+})
