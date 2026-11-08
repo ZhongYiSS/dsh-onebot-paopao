@@ -675,3 +675,23 @@ test('会话自选：手填的 session id 只收规范形状（2026-11-08）', (
   assert.equal(shortPinId('onebot-group-476694593'), 'onebot-group')
   assert.equal(shortPinId(''), '')
 })
+
+test('存配置时 B站 来料四个开关不会被抹掉', async () => {
+  const { readConfigFromObject, readConfig, writeConfig } = await import('../lib/companion/app.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'bbl-'))
+  const home = dir
+  try {
+    writeConfig(home, {
+      enabled: true, dryRun: true, profiles: [{ id: 'p', name: 'P' }], bindings: [],
+      biliDm: true, biliAt: false, biliReply: false, biliWeight: false,
+    })
+    const cfg = readConfig(home)
+    const again = readConfigFromObject(cfg)
+    assert.equal(again.biliAt, false)
+    assert.equal(again.biliReply, false)
+    assert.equal(again.biliWeight, false)
+    assert.equal(again.biliDm, true)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
