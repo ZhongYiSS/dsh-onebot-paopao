@@ -93,6 +93,22 @@ test('钉一个盘上没有的 id：not-found，pins 一个字都不写', async 
   rmSync(r.dir, { recursive: true, force: true })
 })
 
+test('会话正开着（GUI 在用）：给 in-use，别退休、别写 pins', async () => {
+  const r = makeRegistry({ onDisk: ['session-11111111-2222'] })
+  r.chats.set('private:1', { chatId: 'private:1', sessionId: 'old-1', busy: false })
+  r.resumeWithRetry = async () => { throw new Error('session "s-1" is already owned by an active write handle') }
+  const out = await r.pinSession('private:1', 'session-11111111-2222')
+  assert.equal(out.ok, false)
+  assert.equal(out.reason, 'in-use')
+  assert.ok(/正开着/.test(out.message))
+  // 不能进退休名单（进了就永久黑名单，关掉 GUI 也接不回来）
+  assert.equal(r.retiredSessionIds.has('session-11111111-2222'), false)
+  assert.equal(r.brokenSessions.has('session-11111111-2222'), false)
+  // pins 要退回去
+  assert.equal(readPins(r)['private:1'], undefined)
+  rmSync(r.dir, { recursive: true, force: true })
+})
+
 test('形状不对的 id：bad-id', async () => {
   const r = makeRegistry()
   const out = await r.pinSession('private:1', 'session-ab')
