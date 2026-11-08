@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { clamp, riseByTime, canSpeak, triggerChance, release, releaseFactor, addBonus } from '../lib/companion/weight.mjs'
 import { drawEvent, normalizePercent, EVENT_POOL, mergePool } from '../lib/companion/events.mjs'
 import { pruneWindow, canTrigger, countInWindow } from '../lib/companion/limit.mjs'
-import { inQuiet, periodOf, parseHM } from '../lib/companion/period.mjs'
+import { inQuiet, periodOf, parseHM, formatHM } from '../lib/companion/period.mjs'
 import { readState, readHistory, dayKeyOf } from '../lib/companion/state.mjs'
 import { createTicker } from '../lib/companion/tick.mjs'
 import { parseMessage, xmlSummary } from '../lib/cq.js'
@@ -523,4 +523,51 @@ test('「随意聊聊」开关不替她说话：只递话头（B 方案）', asy
   assert.equal(notes.length, 1, '话头要走会话，不走 sendToChat')
   assert.equal(notes[0].role, 'admin')
   assert.ok(notes[0].t.includes('随意聊聊'))
+})
+
+
+test('免打扰：只写小时数也认，且这段时间不涨权重', async () => {
+  assert.equal(parseHM('0'), 0)
+  assert.equal(parseHM('9'), 9 * 60)
+  assert.equal(parseHM('9:30'), 9 * 60 + 30)
+  assert.equal(formatHM(540), '09:00')
+  assert.equal(inQuiet(new Date(2026, 10, 8, 3, 0), { enabled: true, from: '0', to: '9' }), true)
+  assert.equal(inQuiet(new Date(2026, 10, 8, 10, 0), { enabled: true, from: '0', to: '9' }), false)
+
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 8, 3, 0).getTime()
+    const profile = mkProfile({ quiet: { enabled: true, from: '0', to: '9' } })
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile),
+      getHome: () => home,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => now,
+      rnd: () => 0,
+    })
+    const r = await ticker.tick('private:1')
+    assert.equal(r.skipped, 'quiet')
+    const b = bucketOf(readBuckets(home, 'private:1'), 'private:1')
+    assert.equal(b.w, 0, '免打扰期间权重不动')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('跑子进程：程序不存在要干净地 reject，不能变成未捕获异常', async () => {
+  const { runSubprocess } = await import('../lib/video-look.js')
+  const seen = []
+  const onCaught = (e) => seen.push(e)
+  process.on('uncaughtException', onCaught)
+  try {
+    await assert.rejects(
+      () => runSubprocess('D:/__nope__/yt-dlp.exe', ['--version'], { timeoutMs: 3000 }),
+      /找不到程序/,
+    )
+  } finally {
+    process.removeListener('uncaughtException', onCaught)
+  }
+  await new Promise((r) => setTimeout(r, 300))
+  assert.deepEqual(seen, [], '不该冒出未捕获异常')
 })
