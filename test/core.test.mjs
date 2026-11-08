@@ -571,3 +571,82 @@ test('跑子进程：程序不存在要干净地 reject，不能变成未捕获�
   await new Promise((r) => setTimeout(r, 300))
   assert.deepEqual(seen, [], '不该冒出未捕获异常')
 })
+
+test('追聊：只认会话自己写的 [MORE]，标点位置随意、可带秒数', async () => {
+  const { readMore, stripVerdict } = await import('../lib/companion/prompt.mjs')
+  assert.equal(readMore('今天好累 [MORE]'), 0)
+  assert.equal(readMore('正文\n[MORE 30]'), 30)
+  assert.equal(readMore('没有标记'), null)
+  assert.equal(stripVerdict('正文 [MORE] [SCORE 8]'), '正文')
+  assert.equal(stripVerdict('正文 [MORE 45]'), '正文')
+})
+
+test('追聊：排一次队、撞上限就丢、他到点前接上话就不追', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { createFollowup } = await import('../lib/companion/followup.mjs')
+    const fired = []
+    const fu = createFollowup({
+      home,
+      getConfig: () => ({ followupEnabled: true, followupDelayMinSec: 5, followupDelayMaxSec: 5, followupMaxPerHour: 1 }),
+      fire: async (chatId) => { fired.push(chatId); return { ok: true } },
+      userSpokeAt: () => 0,
+      now: () => Date.now(),
+      rnd: () => 0,
+    })
+    try {
+      const a = fu.request('private:1', 0)
+      assert.equal(a.ok, true)
+      assert.equal(a.delaySec, 5)
+      const b = fu.request('private:1', 0)
+      assert.equal(b.ok, false)
+      assert.equal(b.reason, 'cap')
+      assert.equal(fu.pending.length, 1)
+    } finally { fu.stop() }
+
+    // 他到点前说了话 → 这一条作废（由 fire 里的 userSpokeSince 判）
+    const asked = 1000
+    const fu2 = createFollowup({ home: mkdtempSync(join(tmpdir(), 'bubble2-')), getConfig: () => ({}), userSpokeAt: () => 2000 })
+    assert.equal(fu2.userSpokeSince('private:1', asked), true)
+    assert.equal(fu2.userSpokeSince('private:1', 3000), false)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('追聊那一轮：不判阈值、不掷骰，但照走限流和免打扰', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const now = new Date(2026, 10, 8, 12, 0).getTime()
+    const profile = mkProfile({ threshold: 99, triggerPmax: 0.01 })
+    let delivered = 0
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile),
+      getHome: () => home,
+      deliver: async () => { delivered += 1; return { ok: true, mode: 'dry' } },
+      now: () => now,
+      rnd: () => 0.99,
+    })
+    // 普通抽卡：阈值 99、初始权重 0 → 被拦
+    const normal = await ticker.tick('private:1')
+    assert.equal(normal.skipped, 'below')
+    // 追聊：同样的权重、同样的掷骰，照样发出去
+    const r = await ticker.tick('private:1', { followup: true })
+    assert.equal(r.ok, true)
+    assert.equal(r.event, 'followup')
+    assert.equal(delivered, 1)
+    // 免打扰里追聊也不许发
+    const night = new Date(2026, 10, 9, 3, 0).getTime()
+    const ticker2 = createTicker({
+      getPlan: () => mkPlan(mkProfile({ quiet: { enabled: true, from: '00:00', to: '09:00' } })),
+      getHome: () => home,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => night,
+      rnd: () => 0,
+    })
+    const q = await ticker2.tick('private:1', { followup: true })
+    assert.equal(q.skipped, 'quiet')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
