@@ -15,6 +15,7 @@ import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/
 import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
 import { matchCloseChat, matchOpenChat } from '../lib/inbound.js'
+import { validatePinSessionId, shortPinId } from '../lib/pin-id.js'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -649,4 +650,21 @@ test('追聊那一轮：不判阈值、不掷骰，但照走限流和免打扰',
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
+})
+
+test('会话自选：手填的 session id 只收规范形状（2026-11-08）', () => {
+  // 合格：默认会话、带后缀的会话、大小写混合都照收
+  assert.equal(validatePinSessionId('session-75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), undefined)
+  assert.equal(validatePinSessionId('  session-mw1q97ni  '), undefined)
+  assert.equal(validatePinSessionId('session-AbC12345'), undefined)
+  // 不合格：空、空格、没前缀、只写后半段、带路径
+  assert.equal(validatePinSessionId(''), '没填会话 id')
+  assert.equal(validatePinSessionId(undefined), '没填会话 id')
+  assert.equal(validatePinSessionId('session-abc def'), '会话 id 里不该有空格')
+  assert.match(String(validatePinSessionId('75338a0e-ff8d')), /session-/)
+  assert.match(String(validatePinSessionId('session-ab')), /session-/)
+  assert.match(String(validatePinSessionId('D:/x/session-abc12345')), /session-/)
+  // 短名只露前 8 位，够认人又不刷屏
+  assert.equal(shortPinId('session-75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), '75338a0e')
+  assert.equal(shortPinId(''), '')
 })
