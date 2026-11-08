@@ -653,18 +653,20 @@ test('追聊那一轮：不判阈值、不掷骰，但照走限流和免打扰',
 })
 
 test('会话自选：手填的 session id 只收规范形状（2026-11-08）', () => {
-  // 合格：默认会话、带后缀的会话、大小写混合都照收
+  // 合格：GUI 那种带 session- 的、插件早期按 QQ 号起的裸 id 都收
   assert.equal(validatePinSessionId('session-75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), undefined)
   assert.equal(validatePinSessionId('  session-mw1q97ni  '), undefined)
-  assert.equal(validatePinSessionId('session-AbC12345'), undefined)
-  // 不合格：空、空格、没前缀、只写后半段、带路径
+  assert.equal(validatePinSessionId('onebot-group-476694593'), undefined)
+  assert.equal(validatePinSessionId('onebot-private-1094335744-mw7j60ix'), undefined)
+  assert.equal(validatePinSessionId('75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), undefined)
+  // 不合格：空、空格、太短、带路径
   assert.equal(validatePinSessionId(''), '没填会话 id')
   assert.equal(validatePinSessionId(undefined), '没填会话 id')
   assert.equal(validatePinSessionId('session-abc def'), '会话 id 里不该有空格')
-  assert.match(String(validatePinSessionId('75338a0e-ff8d')), /session-/)
   assert.match(String(validatePinSessionId('session-ab')), /session-/)
   assert.match(String(validatePinSessionId('D:/x/session-abc12345')), /session-/)
-  // 短名只露前 8 位，够认人又不刷屏
+  // 短名只露一段，够认人又不刷屏
   assert.equal(shortPinId('session-75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), '75338a0e')
+  assert.equal(shortPinId('onebot-group-476694593'), 'onebot-group')
   assert.equal(shortPinId(''), '')
 })

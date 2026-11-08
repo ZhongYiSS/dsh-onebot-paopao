@@ -95,7 +95,7 @@ test('钉一个盘上没有的 id：not-found，pins 一个字都不写', async 
 
 test('形状不对的 id：bad-id', async () => {
   const r = makeRegistry()
-  const out = await r.pinSession('private:1', '75338a0e')
+  const out = await r.pinSession('private:1', 'session-ab')
   assert.equal(out.ok, false)
   assert.equal(out.reason, 'bad-id')
   rmSync(r.dir, { recursive: true, force: true })
