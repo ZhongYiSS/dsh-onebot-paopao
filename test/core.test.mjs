@@ -367,10 +367,15 @@ test('tick：下一拍按她打的兴趣分补扣（50 分不动）', async () =
     const r2 = await ticker.tick('private:1', { force: true })
     assert.equal(r2.score, undefined)
 
+    // 30 分钟内的分还算（看视频那一轮慢，11-08 从 10 分钟放宽）
+    scored = { score: 0, at: now + 20 * 60_000 }
+    let r3 = await ticker.tick('private:1', { force: true })
+    assert.equal(r3.score, 0)
+
     // 隔太久的分数不算（平时聊天她也每轮打分，那种不该算到泡泡头上）
-    scored = { score: 0, at: now + 30 * 60_000 }
-    const r3 = await ticker.tick('private:1', { force: true })
-    assert.equal(r3.score, undefined)
+    scored = { score: 0, at: now + 40 * 60_000 }
+    const r4 = await ticker.tick('private:1', { force: true })
+    assert.equal(r4.score, undefined)
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
