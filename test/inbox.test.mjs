@@ -127,3 +127,34 @@ test('没来料时照旧：低于阈值就不开口', async () => {
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('来料分类开关：关掉哪类就不递哪类', async () => {
+  const { allowedKinds } = await import('../lib/companion/bili-watch.mjs')
+  assert.deepEqual([...allowedKinds({})].sort(), ['at', 'dm', 'reply'])
+  assert.deepEqual([...allowedKinds({ biliAt: false })].sort(), ['dm', 'reply'])
+  assert.deepEqual([...allowedKinds({ biliDm: false, biliReply: false })], ['at'])
+})
+
+test('来料不动账：照回，但权重一点都不变（不 +分也不扣分）', async () => {
+  const home = tempHome()
+  try {
+    pushInbox(home, 'c1', [{ key: 'k1', kind: 'dm', who: '是钟壹', text: '在吗', at: Date.now() }])
+    const calls = []
+    const plan = { enabled: true, dryRun: false, biliWeight: false, bindings: [{ chatId: 'c1', enabled: true, profile }] }
+    const ticker = createTicker({
+      getPlan: () => plan,
+      getHome: () => home,
+      deliver: async (d) => { calls.push(d); return { ok: true, mode: 'qq' } },
+      idleCheck: async () => true,
+      log: () => {},
+      now: () => Date.now(),
+      rnd: () => 0.5,
+    })
+    const r = await ticker.tick('c1', { force: false, fresh: true })
+    assert.equal(calls.length, 1, '还是照回')
+    assert.equal(r.w2, r.w0, '权重不动')
+    assert.equal(peekInbox(home, 'c1').length, 0)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
