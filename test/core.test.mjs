@@ -584,8 +584,8 @@ test('定时话头：只认 [LATER 25] / [AT 23:30]，算得出秒数', async ()
   const now = new Date(2026, 10, 9, 10, 0, 0).getTime()
   assert.equal(readLater('正文\n[LATER 25]', now), 1500)
   assert.equal(readLater('正文 [LATER 90s]', now), 90)
-  assert.equal(readLater('[AT 21:00]', now), 11 * 3600)     // 今天的 21:00
-  assert.equal(readLater('[AT 09:00]', now), 43200)         // 过了点 → 明天 09:00，但夹到 12 小时上限
+  assert.equal(readLater('[AT 21:00]', now), null)          // 11-09 哥哥砍掉「到几点」这种写法
+  assert.equal(readLater('[LATER 720]', now, 43200), 43200)  // 夹到 12 小时上限
   assert.equal(readLater('没有标记', now), null)
   assert.equal(readLater('[LATER 0]', now), null)
   assert.equal(readLater('[LATER 9999]', now, 43200), 43200) // 夹到上限
