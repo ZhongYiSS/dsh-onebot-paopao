@@ -730,6 +730,37 @@ test('存配置时 B站 来料四个开关不会被抹掉', async () => {
   }
 })
 
+test('存配置时定时聊与刷视频偏好不会被抹掉（全局键全量写回）', async () => {
+  const { readConfigFromObject, readConfig, writeConfig } = await import('../lib/companion/app.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'bbl-'))
+  try {
+    writeConfig(dir, { enabled: true, dryRun: true, profiles: [{ id: 'p', name: 'P' }], bindings: [] })
+    const cfg = readConfig(dir)
+    cfg.followupEnabled = true
+    cfg.followupPerDay = 7
+    cfg.followupMaxHours = 5
+    cfg.followupMinSec = 120
+    cfg.convIdleMinutes = 45
+    cfg.videoKeywordsPerRound = 2
+    cfg.videoDetail = false
+    cfg.videoBlockUids = ['123']
+    cfg.videoBlockUps = ['某某']
+    writeConfig(dir, readConfigFromObject(cfg))
+    const back = readConfig(dir)
+    assert.equal(back.followupEnabled, true, '定时话头开关')
+    assert.equal(back.followupPerDay, 7, '每天几条')
+    assert.equal(back.followupMaxHours, 5, '最长几小时')
+    assert.equal(back.followupMinSec, 120, '最短多久')
+    assert.equal(back.convIdleMinutes, 45, '对话间隔')
+    assert.equal(back.videoKeywordsPerRound, 2, '每轮几个关键词')
+    assert.equal(back.videoDetail, false, '关键词补详情')
+    assert.deepEqual(back.videoBlockUids, ['123'])
+    assert.deepEqual(back.videoBlockUps, ['某某'])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('tick：准备阶段拿得到整份配置上的兴趣关键词（别退回热门兜底）', async () => {
   const home = mkdtempSync(join(tmpdir(), 'bubble-'))
   try {
