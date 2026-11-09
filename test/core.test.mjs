@@ -373,10 +373,15 @@ test('tick：下一拍按她打的兴趣分补扣（50 分不动）', async () =
     let r3 = await ticker.tick('private:1', { force: true })
     assert.equal(r3.score, 0)
 
-    // 隔太久的分数不算（平时聊天她也每轮打分，那种不该算到泡泡头上）
+    // 聊完隔一阵才轮到下一拍，照样算（11-10 起分是「她对这次对话的心情」）
     scored = { score: 0, at: now + 40 * 60_000 }
     const r4 = await ticker.tick('private:1', { force: true })
-    assert.equal(r4.score, undefined)
+    assert.equal(r4.score, 0)
+
+    // 超过 24 小时的老心情不要
+    scored = { score: 0, at: now - 25 * 3600_000 }
+    const r5 = await ticker.tick('private:1', { force: true })
+    assert.equal(r5.score, undefined)
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
@@ -579,7 +584,7 @@ test('跑子进程：程序不存在要干净地 reject，不能变成未捕获�
   assert.deepEqual(seen, [], '不该冒出未捕获异常')
 })
 
-test('定时话头：只认 [LATER 25] / [AT 23:30]，算得出秒数', async () => {
+test('定时话头：只认 [LATER 分钟数]，算得出秒数', async () => {
   const { readLater, stripVerdict } = await import('../lib/companion/prompt.mjs')
   const now = new Date(2026, 10, 9, 10, 0, 0).getTime()
   assert.equal(readLater('正文\n[LATER 25]', now), 1500)
@@ -590,7 +595,6 @@ test('定时话头：只认 [LATER 25] / [AT 23:30]，算得出秒数', async ()
   assert.equal(readLater('[LATER 0]', now), null)
   assert.equal(readLater('[LATER 9999]', now, 43200), 43200) // 夹到上限
   assert.equal(stripVerdict('正文 [LATER 25] [SCORE 8]'), '正文')
-  assert.equal(stripVerdict('正文 [AT 23:30]'), '正文')
 })
 
 test('定时话头：一条未决、撞每日上限就丢、能撤、重启排得回来', async () => {
