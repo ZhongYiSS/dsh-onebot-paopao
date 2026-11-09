@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { clamp, riseByTime, canSpeak, triggerChance, release, releaseFactor, addBonus } from '../lib/companion/weight.mjs'
+import { clamp, riseByTime, canSpeak, triggerChance, settle, refundPct, spend, addBonus } from '../lib/companion/weight.mjs'
 import { drawEvent, normalizePercent, EVENT_POOL, mergePool } from '../lib/companion/events.mjs'
 import { pruneWindow, canTrigger, countInWindow } from '../lib/companion/limit.mjs'
 import { inQuiet, periodOf, parseHM, formatHM } from '../lib/companion/period.mjs'
@@ -45,18 +45,32 @@ test('阈值与概率都是单调的', () => {
   assert.equal(triggerChance(29.9, 30, 1), 0)
 })
 
-test('开口后释放：10 分不扣、5 分标准、1 分双倍', () => {
-  const p5 = release(80, 50, { base: 20 })
-  const p10 = release(80, 100, { base: 20 })
-  const p1 = release(80, 10, { base: 20 })
-  const p0 = release(80, 0, { base: 20 })
-  assert.equal(p5, 60)
-  assert.equal(p10, 80)
-  assert.equal(p1, 40)
-  assert.equal(p0, 40) // 0 分也封顶在双倍
-  assert.ok(Math.abs(releaseFactor(80) - 0.4) < 1e-9)
-  assert.ok(Math.abs(releaseFactor(60) - 0.8) < 1e-9)
-  assert.ok(Math.abs(releaseFactor(20) - 1.75) < 1e-9)
+test('评分结算：10 分补 120%、5 分不动、0 分追扣一倍', () => {
+  // 哥哥 11-10 的表：这一轮已经先扣过一格 20，分到了按百分比补/追扣。
+  assert.equal(settle(60, 50, { base: 20 }), 60) // 5 分不动
+  assert.equal(settle(60, 100, { base: 20 }), 84) // 10 分补 120% → +24
+  assert.equal(settle(60, 90, { base: 20 }), 76) // 9 分 +80% → +16
+  assert.equal(settle(60, 80, { base: 20 }), 72) // 8 分 +60% → +12
+  assert.equal(settle(60, 70, { base: 20 }), 70) // 7 分 +50% → +10
+  assert.equal(settle(60, 60, { base: 20 }), 64) // 6 分 +20% → +4
+  assert.equal(settle(60, 40, { base: 20 }), 56) // 4 分 -20% → -4
+  assert.equal(settle(60, 10, { base: 20 }), 44) // 1 分 -80% → -16
+  assert.equal(settle(60, 0, { base: 20 }), 40) // 0 分 -100% → -20
+  assert.equal(refundPct(100), 120)
+  assert.equal(refundPct(0), -100)
+  // 他找上门的那段对话 +2 分：5 分变 7 分档(+50%)
+  assert.equal(refundPct(50, { inbound: true }), 50)
+  assert.equal(refundPct(30, { inbound: true }), 0) // 3 分 +2 = 5 分
+  // 补到爆也一样夹在 100
+  assert.equal(settle(95, 100, { base: 20 }), 100)
+})
+
+test('每轮固定消耗：不管发没发出去都扣一格，夹在地板上', () => {
+  assert.equal(spend(30, 20), 10)
+  assert.equal(spend(5, 20), -15)
+  assert.equal(spend(-15, 20), -20) // 默认地板 -20
+  assert.equal(spend(-15, 20, { floor: -100 }), -35) // 下限开放后可到 -35
+  assert.equal(spend(-95, 20, { floor: -100 }), -100)
 })
 
 test('事件加分夹住上限', () => {
@@ -192,7 +206,7 @@ test('tick：低于阈值不动，高于阈值必中时走完整链路', async (
     assert.equal(r2.ok, true)
     assert.equal(r2.event, 'chat')
     assert.equal(r2.w1, 65.5)   // 60 + 每拍 0.5 + 事件加分 5
-    assert.equal(r2.w2, 45.5)   // 标准扣 20（5 分系数 1）
+    assert.equal(r2.w2, 65.5)   // 11-10 起不在 tick 里扣，扣分改到 QQ 那边回合结束时做
     const hist = readHistory(home, 5)
     assert.equal(hist.length, 1)
     assert.equal(hist[0].event, 'chat')
@@ -352,17 +366,17 @@ test('tick：下一拍按她打的兴趣分补扣（50 分不动）', async () =
 
     const buckets = readBuckets(home, 'private:1')
     const b = bucketOf(buckets, 'private:1')
-    b.w = 100
+    b.w = 70
     b.window = []
     b.lastTriggerAt = now - 60_000   // 上一轮是一分钟前发的
     writeBuckets(home, buckets)
 
-    // 她给自己打了满分 → 系数 0，把投递时按 5 分扣的那一下整个还回来（+20）
+    // 满分 → 按 11-10 的表补 120% × 20 = +24
     scored = { score: 100, at: now + 1 }
     const r = await ticker.tick('private:1', { force: true })
     assert.equal(r.score, 100)
-    assert.equal(r.scoreDelta, 20)
-    assert.equal(r.w0, 100)
+    assert.equal(r.scoreDelta, 24)
+    assert.equal(r.w0, 70)
 
     // 同一个分数不会被吃第二遍
     const r2 = await ticker.tick('private:1', { force: true })
