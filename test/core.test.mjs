@@ -157,9 +157,10 @@ const mkProfile = (over = {}) => ({
   ...over,
 })
 
-const mkPlan = (profile, chatId = 'private:1') => ({
+const mkPlan = (profile, chatId = 'private:1', globals = {}) => ({
   enabled: true, dryRun: true,
   bindings: [{ chatId, enabled: true, profile }],
+  globals,
 })
 
 test('tick：低于阈值不动，高于阈值必中时走完整链路', async () => {
@@ -693,5 +694,42 @@ test('存配置时 B站 来料四个开关不会被抹掉', async () => {
     assert.equal(again.biliDm, true)
   } finally {
     rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('tick：准备阶段拿得到整份配置上的兴趣关键词（别退回热门兜底）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const profile = mkProfile({
+      pool: [{ id: 'video', label: '去b站找个视频', weight: 100, bonus: 0, adapter: 'bili', hint: '', enabled: true }],
+    })
+    const globals = { keywords: ['AI娘', '百合'], videoPerRound: 4, videoMinPlay: 5000 }
+    let seen = null
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile, 'private:1', globals),
+      getHome: () => home,
+      prepare: async (ev, info) => { seen = info.cfg; return [] },
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => now,
+      rnd: () => 0,
+    })
+
+    const buckets = readBuckets(home, 'private:1')
+    const b = bucketOf(buckets, 'private:1')
+    b.w = 100
+    b.window = []
+    writeBuckets(home, buckets)
+
+    await ticker.tick('private:1')
+
+    assert.ok(seen, 'prepare 应该被调用')
+    assert.deepEqual(seen.keywords, ['AI娘', '百合'], '兴趣关键词要传到 prepare')
+    assert.equal(seen.videoPerRound, 4, '刷视频参数也要传')
+    assert.equal(seen.videoMinPlay, 5000)
+    assert.equal(seen.threshold, profile.threshold, '这套模式自己的配置不能被覆盖掉')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
   }
 })
