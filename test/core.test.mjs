@@ -579,43 +579,58 @@ test('跑子进程：程序不存在要干净地 reject，不能变成未捕获�
   assert.deepEqual(seen, [], '不该冒出未捕获异常')
 })
 
-test('追聊：只认会话自己写的 [MORE]，标点位置随意、可带秒数', async () => {
-  const { readMore, stripVerdict } = await import('../lib/companion/prompt.mjs')
-  assert.equal(readMore('今天好累 [MORE]'), 0)
-  assert.equal(readMore('正文\n[MORE 30]'), 30)
-  assert.equal(readMore('没有标记'), null)
-  assert.equal(stripVerdict('正文 [MORE] [SCORE 8]'), '正文')
-  assert.equal(stripVerdict('正文 [MORE 45]'), '正文')
+test('定时话头：只认 [LATER 25] / [AT 23:30]，算得出秒数', async () => {
+  const { readLater, stripVerdict } = await import('../lib/companion/prompt.mjs')
+  const now = new Date(2026, 10, 9, 10, 0, 0).getTime()
+  assert.equal(readLater('正文\n[LATER 25]', now), 1500)
+  assert.equal(readLater('正文 [LATER 90s]', now), 90)
+  assert.equal(readLater('[AT 21:00]', now), 11 * 3600)     // 今天的 21:00
+  assert.equal(readLater('[AT 09:00]', now), 43200)         // 过了点 → 明天 09:00，但夹到 12 小时上限
+  assert.equal(readLater('没有标记', now), null)
+  assert.equal(readLater('[LATER 0]', now), null)
+  assert.equal(readLater('[LATER 9999]', now, 43200), 43200) // 夹到上限
+  assert.equal(stripVerdict('正文 [LATER 25] [SCORE 8]'), '正文')
+  assert.equal(stripVerdict('正文 [AT 23:30]'), '正文')
 })
 
-test('追聊：排一次队、撞上限就丢、他到点前接上话就不追', async () => {
+test('定时话头：一条未决、撞每日上限就丢、能撤、重启排得回来', async () => {
   const home = mkdtempSync(join(tmpdir(), 'bubble-'))
   try {
     const { createFollowup } = await import('../lib/companion/followup.mjs')
+    const cfg = { followupEnabled: true, followupPerDay: 2, followupMaxHours: 12, followupMinSec: 60 }
+    let t = new Date(2026, 10, 9, 10, 0, 0).getTime()
     const fired = []
     const fu = createFollowup({
-      home,
-      getConfig: () => ({ followupEnabled: true, followupDelayMinSec: 5, followupDelayMaxSec: 5, followupMaxPerHour: 1 }),
+      home, getConfig: () => cfg,
       fire: async (chatId) => { fired.push(chatId); return { ok: true } },
-      userSpokeAt: () => 0,
-      now: () => Date.now(),
-      rnd: () => 0,
+      now: () => t,
     })
     try {
-      const a = fu.request('private:1', 0)
+      const a = fu.request('private:1', 600)
       assert.equal(a.ok, true)
-      assert.equal(a.delaySec, 5)
-      const b = fu.request('private:1', 0)
-      assert.equal(b.ok, false)
-      assert.equal(b.reason, 'cap')
+      assert.equal(a.sec, 600)
+      // 同一个会话再排 → 覆盖，不叠两条
+      const b = fu.request('private:1', 1200)
+      assert.equal(b.ok, true)
+      assert.equal(fu.pending.length, 1)
+      assert.equal(fu.pending[0].sec, 1200)
+      // 同一个会话今天已经排过 2 次（上面两次）→ 第三次撞上限
+      const c = fu.request('private:1', 300)
+      assert.equal(c.ok, false)
+      assert.equal(c.reason, 'cap')
+      // 别的会话各算各的，不受影响
+      assert.equal(fu.request('private:2', 300).ok, true)
+      // 撤掉
+      assert.equal(fu.cancel('private:1'), true)
       assert.equal(fu.pending.length, 1)
     } finally { fu.stop() }
 
-    // 他到点前说了话 → 这一条作废（由 fire 里的 userSpokeSince 判）
-    const asked = 1000
-    const fu2 = createFollowup({ home: mkdtempSync(join(tmpdir(), 'bubble2-')), getConfig: () => ({}), userSpokeAt: () => 2000 })
-    assert.equal(fu2.userSpokeSince('private:1', asked), true)
-    assert.equal(fu2.userSpokeSince('private:1', 3000), false)
+    // 重启：落盘的那条能排回来（时间改成 20 秒后，等它真的响）
+    t = new Date(2026, 10, 9, 10, 0, 0).getTime()
+    const fu2 = createFollowup({ home, getConfig: () => cfg, fire: async (c) => { fired.push(c); return { ok: true } }, now: () => t })
+    fu2.restore()
+    assert.equal(fu2.pending.length, 1)
+    fu2.stop()
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
@@ -729,6 +744,61 @@ test('tick：准备阶段拿得到整份配置上的兴趣关键词（别退回�
     assert.equal(seen.videoPerRound, 4, '刷视频参数也要传')
     assert.equal(seen.videoMinPlay, 5000)
     assert.equal(seen.threshold, profile.threshold, '这套模式自己的配置不能被覆盖掉')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('绑定关掉：整条停摆，既不涨权重也不抽卡（2026-11-09）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 9, 12, 0).getTime()
+    const buckets = readBuckets(home)
+    bucketOf(buckets, 'private:1').w = 10
+    writeBuckets(home, buckets)
+
+    const profile = mkProfile({ risePerTick: 5, threshold: 0, triggerPmax: 1, tickMinutes: 0 })
+    let delivered = 0
+    const ticker = createTicker({
+      getPlan: () => ({ ...mkPlan(profile), bindings: [{ chatId: 'private:1', enabled: false, profile }] }),
+      getHome: () => home,
+      deliver: async () => { delivered += 1; return { ok: true, mode: 'dry' } },
+      now: () => now,
+      rnd: () => 0,
+    })
+    const r = await ticker.tick('private:1')
+    assert.equal(r.skipped, 'binding-off')
+    assert.equal(delivered, 0)
+    const after = readBuckets(home)
+    assert.equal(bucketOf(after, 'private:1').w, 10, '关掉开关不该涨权重')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('定时话头：限流卡满也照发（2026-11-09）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    let now = new Date(2026, 10, 9, 12, 0).getTime()
+    const profile = mkProfile({ threshold: 99, triggerPmax: 0.01, limitHours: 3, limitMax: 1, tickMinutes: 1 })
+    let delivered = 0
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile),
+      getHome: () => home,
+      deliver: async () => { delivered += 1; return { ok: true, mode: 'dry' } },
+      now: () => now,
+      rnd: () => 0.99,
+    })
+    // 手动抽一发先占满窗口
+    await ticker.tick('private:1', { force: true })
+    now += 61_000
+    const normal = await ticker.tick('private:1')
+    assert.equal(normal.skipped, 'limit')
+    // 定时话头无视限流
+    const later = await ticker.tick('private:1', { followup: true })
+    assert.equal(later.ok, true)
+    assert.equal(delivered, 2)
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
