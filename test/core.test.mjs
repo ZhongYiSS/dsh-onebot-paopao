@@ -826,6 +826,32 @@ test('绑定关掉：整条停摆，既不涨权重也不抽卡（2026-11-09）'
   }
 })
 
+test('绑定关掉：手里攒着没结的分也不许结算（2026-11-11）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 11, 11, 1, 30).getTime()
+    const buckets = readBuckets(home)
+    bucketOf(buckets, 'group:9').w = 6
+    writeBuckets(home, buckets)
+    const profile = mkProfile({ risePerTick: 5, threshold: 0, triggerPmax: 1, tickMinutes: 0 })
+    const ticker = createTicker({
+      getPlan: () => ({ ...mkPlan(profile), bindings: [{ chatId: 'group:9', enabled: false, profile }] }),
+      getHome: () => home,
+      scoreOf: () => ({ score: 10, at: now - 60000, inbound: true }),
+      now: () => now,
+      rnd: () => 0,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+    })
+    const r = await ticker.tick('group:9')
+    assert.equal(r.skipped, 'binding-off')
+    const after = readBuckets(home)
+    assert.equal(bucketOf(after, 'group:9').w, 6, '关掉的会话不该被「评分结算」改权重')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
 test('定时话头：限流卡满也照发（2026-11-09）', async () => {
   const home = mkdtempSync(join(tmpdir(), 'bubble-'))
   try {
