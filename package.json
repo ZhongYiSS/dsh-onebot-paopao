@@ -1,7 +1,7 @@
 {
-  "name": "dsh-onebot-qq",
-  "version": "0.9.6-companion.1",
-  "description": "QQ 通道 + 陪伴（泡泡）：OneBot 11 / NapCat，含按权重自己开口、自己找 B站 视频、扫码登录与私信监看的陪伴层。",
+  "name": "dsh-paopao",
+  "version": "0.2.0",
+  "description": "泡泡（PaoPao）：给 DeepSeek Harness 的 QQ 通道 + 陪伴层 —— 按权重自己开口、自己找 B站 视频、扫码登录与私信监看。QQ channel plus a companionship layer for dsh.",
   "keywords": [
     "dsh",
     "onebot",
@@ -37,10 +37,13 @@
     "!lib/*.bak-*",
     "cordis.patch.yml",
     "bin",
-    "assets"
+    "assets",
+    "screenshots.json",
+    "THIRD-PARTY-NOTICES.md",
+    "CHANGELOG.md"
   ],
-  "license": "BSD-3-Clause",
-  "author": "dsh-onebot-qq contributors",
+  "license": "MIT",
+  "author": "PaoPao contributors",
   "forkOf": "https://github.com/mario841859784/dsh-onebot",
   "engines": {
     "dsh": ">=0.1.5-rc.1 <0.1.6-0 || >=0.1.6-alpha.1 <0.1.7-0 || >=0.1.7-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0 || >=0.2.1-0 <0.3.0-0",
@@ -111,6 +114,7 @@
     "verify:lan-management": "node scripts/verify-lan-management.mjs"
   },
   "bin": {
+    "dsh-paopao-doctor": "bin/doctor.mjs",
     "dsh-onebot-doctor": "bin/doctor.mjs"
   }
 }

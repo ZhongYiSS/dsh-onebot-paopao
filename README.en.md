@@ -1,8 +1,17 @@
-# dsh-onebot
+# dsh-PaoPao (PaoPao)
 
 > **English | [中文](README.md)**
 
-A QQ channel for DeepSeek Harness. 给 DeepSeek Harness 加上 QQ 通道。
+A QQ channel plus a companionship layer for DeepSeek Harness.
+
+**PaoPao** decides on its own when to speak (weight-based), picks Bilibili videos to send, transcribes voice,
+watches videos, recognises images, and hands Bilibili DM/@ events to the session — **the session always writes the
+words; the plugin only hands over the cue and never writes a single character itself.**
+
+> This repository is a derivative of [dsh-onebot](https://github.com/mario841859784/dsh-onebot): it adds the
+> companionship layer, Bilibili video picking and a video-watching tool, and moves every personal detail into
+> configuration. The upstream QQ channel is kept as-is. The licence changed from upstream's BSD-3-Clause to MIT;
+> both licence texts are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 This plugin turns dsh into a QQ bot (**OneBot 11 protocol**, compatible with NapCat / Lagrange / LLOneBot / go-cqhttp).
 Like [dsh-vision](https://github.com/dsh-external/dsh-vision), it ships as an external plugin: **zero Python, pure
@@ -76,7 +85,7 @@ Last verified: 2026-10-12 (0.9.0 release batch W1–W3 five features: v4 command
 ### npm install (published channel — pick this OR the source install below; do not mix)
 
 ```sh
-dsh plugin --profile web add dsh-onebot-qq
+dsh plugin --profile web add dsh-paopao
 ```
 
 (or install from the Plugins page in the web UI.) Then:
@@ -99,8 +108,8 @@ dsh plugin --profile web add dsh-onebot-qq
    and redirected to the same instance in the host install tree — no npm overrides needed.
 2. Merge the two `insert` lines from the bundled `cordis.patch.yml` template into the
    profile-level `<DSH_HOME>/profiles/web/cordis.patch.yml`: main entry
-   `name: 'dsh-onebot-qq'`, host-plane line
-   `name: 'dsh-onebot-qq/settings-remote'`; config overrides must sit on the
+   `name: 'dsh-paopao'`, host-plane line
+   `name: 'dsh-paopao/settings-remote'`; config overrides must sit on the
    top-level line with the same id (see the template header for details).
 3. **Never** hand-write any `@deepseek-ai/*` dependency into the profile's package.json — a
    hand-written copy overrides the host install tree as the interception target, causing a
@@ -111,8 +120,8 @@ dsh plugin --profile web add dsh-onebot-qq
 ### Option 2: install from source (git clone)
 
 ```sh
-git clone <repo> ~/dsh-plugins/dsh-onebot
-cd ~/dsh-plugins/dsh-onebot
+git clone <repo> ~/dsh-plugins/dsh-PaoPao
+cd ~/dsh-plugins/dsh-PaoPao
 npm install --include=dev
 ./scripts/build.sh          # link host @deepseek-ai packages + tsc src/ → lib/
 ```
@@ -485,4 +494,19 @@ Full timeline / root causes / fixes: [DEVLOG.md](DEVLOG.md) (ported from the Her
 
 ## License
 
-BSD-3-Clause
+MIT. Upstream [dsh-onebot](https://github.com/mario841859784/dsh-onebot) is BSD-3-Clause; the design also
+references [dsh-bili-scroll](https://github.com/c1overzz/dsh-bili-scroll) (MIT). Both licence texts and the
+third-party component list are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Acknowledgements
+
+- **[dsh-onebot](https://github.com/mario841859784/dsh-onebot)** — the QQ channel, OneBot 11 integration, session
+  mapping and t2i cards all come from it. This project is its derivative. BSD-3-Clause.
+- **[dsh-bili-scroll](https://github.com/c1overzz/dsh-bili-scroll)** — inspired the Bilibili side (credential
+  convention, the "worth watching" judgement, DM watching). MIT. No source code was copied; only the credential
+  path convention `$DSH_HOME/bili-duty/bili_credential.json` was kept.
+- **[NapCat](https://github.com/NapNeko/NapCatQQ)** — the layer that actually speaks to QQ.
+- **[better-sqlite3](https://github.com/WiseLibs/better-sqlite3), [sharp](https://github.com/lovell/sharp),
+  [ws](https://github.com/websockets/ws), [@napi-rs/canvas](https://github.com/Brooooooklyn/canvas)** — the wheels underneath.
+- **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** — optional fallback transcription for videos without subtitles.
+- **FFmpeg / yt-dlp** — optional external programs for downloading, frame sampling and colour work.

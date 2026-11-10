@@ -1,10 +1,12 @@
-# dsh-onebot
+# dsh-PaoPao（泡泡）
 
 > **[English](README.en.md) | 中文**
 
-给 DeepSeek Harness 加上 QQ 通道。A QQ channel for dsh.
+给 DeepSeek Harness 加上 QQ 通道，再加一层会自己找话说的陪伴层。A QQ channel and a companionship layer for dsh.
 
-> 本仓库是在 [dsh-onebot](https://github.com/mario841859784/dsh-onebot) 基础上二次开发的版本：加了陪伴层（泡泡）、B站 视频挑选与「看视频」工具，并把个人化内容全部挪进配置。上游的 QQ 通道部分保持原样。
+**泡泡**能做什么：按你设的权重自己决定什么时候开口、自己找 B站 视频发过来、听得懂语音、看得懂视频、认得出图片、B站 有新私信/@ 会递话头给会话——**话永远是会话本体说的，插件只递话头，一个字都不代写**。
+
+> 本仓库是在 [dsh-onebot](https://github.com/mario841859784/dsh-onebot) 基础上二次开发的版本：加了陪伴层（泡泡）、B站 视频挑选与「看视频」工具，并把个人化内容全部挪进配置。上游的 QQ 通道部分保持原样。许可证由上游的 BSD-3-Clause 改为 MIT，两份许可全文见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 
 本插件把 dsh 变成一个 QQ 机器人（**OneBot 11 协议**，兼容 NapCat / Lagrange / LLOneBot / go-cqhttp），
 与 [dsh-vision](https://github.com/dsh-external/dsh-vision) 同款的外部插件形态：**零 Python、纯 TS、
@@ -72,7 +74,7 @@
 ### 装完先做一次环境检查
 
 ```sh
-node bin/doctor.mjs          # 或 npx dsh-onebot-doctor
+node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 ```
 
 一条命令列出：Node 版本、ws/canvas/fontkit、ffmpeg/ffprobe、yt-dlp、Python 与 faster-whisper、whisper CLI、B站 登录、视觉模型、NapCat 目录与进程，每项后面直接跟「缺了怎么补」（含 `winget install …` 这类一行命令）。只查不装、不改系统，退出码 0 表示没有硬伤。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
@@ -86,7 +88,7 @@ node bin/doctor.mjs          # 或 npx dsh-onebot-doctor
 ### npm 安装（发布通道，与下方源码安装二选一，勿混装）
 
 ```sh
-dsh plugin --profile web add dsh-onebot-qq
+dsh plugin --profile web add dsh-paopao
 ```
 
 （或用 Web 界面的 Plugins 页安装。）随后：
@@ -106,8 +108,8 @@ dsh plugin --profile web add dsh-onebot-qq
    只要声明在该包 peerDependencies 里，就会被宿主拦截并重定向到宿主安装树的同一实例，
    无需任何 npm override。
 2. 把包内 `cordis.patch.yml` 模板的两行 insert 合并进 profile 层
-   `<DSH_HOME>/profiles/web/cordis.patch.yml`：主条目 `name: 'dsh-onebot-qq'`，
-   host-plane 行 `name: 'dsh-onebot-qq/settings-remote'`；config 覆盖须挂
+   `<DSH_HOME>/profiles/web/cordis.patch.yml`：主条目 `name: 'dsh-paopao'`，
+   host-plane 行 `name: 'dsh-paopao/settings-remote'`；config 覆盖须挂
    patch 顶层同 id 行（详见模板头注释）。
 3. **不要**在 profile 的 package.json 手写任何 `@deepseek-ai/*` 依赖——手写副本会
    覆盖宿主安装树成为拦截目标，造成版本错位双包。
@@ -117,8 +119,8 @@ dsh plugin --profile web add dsh-onebot-qq
 ### 方式二：git clone 源码安装
 
 ```sh
-git clone <repo> ~/dsh-plugins/dsh-onebot
-cd ~/dsh-plugins/dsh-onebot
+git clone <repo> ~/dsh-plugins/dsh-PaoPao
+cd ~/dsh-plugins/dsh-PaoPao
 npm install --include=dev
 ./scripts/build.sh          # 链接宿主 @deepseek-ai 包 + tsc 编译 src/ → lib/
 ```
@@ -480,5 +482,16 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 
 ## License
 
-BSD-3-Clause
+MIT。上游 [dsh-onebot](https://github.com/mario841859784/dsh-onebot) 为 BSD-3-Clause，
+本项目的设计还参考了 [dsh-bili-scroll](https://github.com/c1overzz/dsh-bili-scroll)（MIT）；
+两份许可全文与第三方组件清单见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+## 致谢
+
+- **[dsh-onebot](https://github.com/mario841859784/dsh-onebot)** —— QQ 通道、OneBot 11 接入、会话映射、t2i 卡片这些底座都是它的功劳，本项目是它的二次开发。BSD-3-Clause。
+- **[dsh-bili-scroll](https://github.com/c1overzz/dsh-bili-scroll)** —— B站 那一套（登录凭证约定、刷视频的判据思路、私信监看）参考了它。MIT。本项目没有复制它的源代码，只沿用了凭证路径约定 `$DSH_HOME/bili-duty/bili_credential.json`。
+- **[NapCat](https://github.com/NapNeko/NapCatQQ)** —— 实际把 QQ 送出去的那一层。
+- **[better-sqlite3](https://github.com/WiseLibs/better-sqlite3)、[sharp](https://github.com/lovell/sharp)、[ws](https://github.com/websockets/ws)、[@napi-rs/canvas](https://github.com/Brooooooklyn/canvas)** —— 底下的轮子。
+- **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** —— 「看视频」没字幕时的转写（可选依赖）。
+- **FFmpeg / yt-dlp** —— 视频下载、抽帧、调色（可选外部程序）。
 
