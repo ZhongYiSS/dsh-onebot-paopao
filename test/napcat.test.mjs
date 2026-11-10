@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   launcherPath, qrPath, validateNapcatDir, buildLaunchCommand,
-  parseTasklist, qrInfo, guessNapcatDir, resolveNapcatDir, detectBotQQ, QR_STALE_SEC,
+  parseTasklist, qrInfo, guessNapcatDir, resolveNapcatDir, detectBotQQ, QR_STALE_SEC, buildVbsScript,
 } from '../lib/napcat.js'
 
 const mk = (withLauncher = true) => {
@@ -119,4 +119,14 @@ test('二维码：超过 150 秒没更新就算过期（别拿旧图给人扫）
     assert.equal(old.stale, true, '10 分钟前的图应该判过期')
     assert.equal(QR_STALE_SEC, 150)
   } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('隐藏窗口启动脚本：Chr(34) 拼引号 + On Error 兜住（不弹 WSH 对话框）', () => {
+  const s = buildVbsScript('D:\\AI\\QQ\\NapCat.Shell', { uin: '3490240357', quickLogin: true, logPath: 'C:\\x\\err.log' })
+  assert.match(s, /On Error Resume Next/)
+  assert.match(s, /sh\.Run cmd, 0, False/, '必须是窗口样式 0（隐藏）')
+  assert.match(s, /Chr\(34\) & "D:\\AI\\QQ\\NapCat\.Shell\\launcher\.bat" & Chr\(34\) & " -q 3490240357"/)
+  assert.match(s, /CreateTextFile\("C:\\x\\err\.log", True\)/)
+  const off = buildVbsScript('D:\\q', { uin: '123', quickLogin: false })
+  assert.ok(!off.includes('-q 123'), '关了快速登录就不该带 -q')
 })
