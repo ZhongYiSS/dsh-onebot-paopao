@@ -8,7 +8,7 @@
 
 **改名与发布准备**
 
-- npm 包名 `dsh-onebot-qq` → `dsh-paopao`（GitHub 仓库叫 `dsh-PaoPao`，npm 只允许小写）；设置页里那一栏改叫「泡泡」。
+- npm 包名 `dsh-onebot-qq` → `dsh-onebot-paopao`（GitHub 仓库叫 `dsh-PaoPao`，npm 只允许小写）；设置页里那一栏改叫「泡泡」。
 - 许可证 BSD-3-Clause → MIT；新增 `THIRD-PARTY-NOTICES.md`，把上游 dsh-onebot（BSD-3）与参考过的 dsh-bili-scroll（MIT）两份许可全文放齐，并声明本仓库独立发布、不代表上游。
 - `package.json` 补 `author` / `forkOf` / 新的中英描述；`bin` 加 `dsh-paopao-doctor`（旧的 `dsh-onebot-doctor` 保留作兼容）。
 - README 中英两份都补「致谢」一节，安装命令、patch 条目名、源码目录名同步改成新名字。

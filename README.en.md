@@ -1,4 +1,4 @@
-# dsh-PaoPao (PaoPao)
+# dsh-onebot-paopao (PaoPao)
 
 > **English | [中文](README.md)**
 
@@ -85,7 +85,7 @@ Last verified: 2026-10-12 (0.9.0 release batch W1–W3 five features: v4 command
 ### npm install (published channel — pick this OR the source install below; do not mix)
 
 ```sh
-dsh plugin --profile web add dsh-paopao
+dsh plugin --profile web add dsh-onebot-paopao
 ```
 
 (or install from the Plugins page in the web UI.) Then:
@@ -108,8 +108,8 @@ dsh plugin --profile web add dsh-paopao
    and redirected to the same instance in the host install tree — no npm overrides needed.
 2. Merge the two `insert` lines from the bundled `cordis.patch.yml` template into the
    profile-level `<DSH_HOME>/profiles/web/cordis.patch.yml`: main entry
-   `name: 'dsh-paopao'`, host-plane line
-   `name: 'dsh-paopao/settings-remote'`; config overrides must sit on the
+   `name: 'dsh-onebot-paopao'`, host-plane line
+   `name: 'dsh-onebot-paopao/settings-remote'`; config overrides must sit on the
    top-level line with the same id (see the template header for details).
 3. **Never** hand-write any `@deepseek-ai/*` dependency into the profile's package.json — a
    hand-written copy overrides the host install tree as the interception target, causing a
@@ -120,8 +120,8 @@ dsh plugin --profile web add dsh-paopao
 ### Option 2: install from source (git clone)
 
 ```sh
-git clone <repo> ~/dsh-plugins/dsh-PaoPao
-cd ~/dsh-plugins/dsh-PaoPao
+git clone <repo> ~/dsh-plugins/dsh-onebot-paopao
+cd ~/dsh-plugins/dsh-onebot-paopao
 npm install --include=dev
 ./scripts/build.sh          # link host @deepseek-ai packages + tsc src/ → lib/
 ```

@@ -1,5 +1,5 @@
-url: https://github.com/OWNER/dsh-PaoPao
-name: OWNER/dsh-PaoPao
+url: https://github.com/ZhongYiSS/dsh-onebot-paopao
+name: ZhongYiSS/dsh-onebot-paopao
 category: notify
 description:
   en: "QQ channel and a weight-based companionship layer for DeepSeek Harness: proactive messages, Bilibili video picking, video watching, and voice transcription."

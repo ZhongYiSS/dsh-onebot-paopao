@@ -1,4 +1,4 @@
-# dsh-PaoPao（泡泡）
+# dsh-onebot-paopao（泡泡）
 
 > **[English](README.en.md) | 中文**
 
@@ -88,7 +88,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 ### npm 安装（发布通道，与下方源码安装二选一，勿混装）
 
 ```sh
-dsh plugin --profile web add dsh-paopao
+dsh plugin --profile web add dsh-onebot-paopao
 ```
 
 （或用 Web 界面的 Plugins 页安装。）随后：
@@ -108,8 +108,8 @@ dsh plugin --profile web add dsh-paopao
    只要声明在该包 peerDependencies 里，就会被宿主拦截并重定向到宿主安装树的同一实例，
    无需任何 npm override。
 2. 把包内 `cordis.patch.yml` 模板的两行 insert 合并进 profile 层
-   `<DSH_HOME>/profiles/web/cordis.patch.yml`：主条目 `name: 'dsh-paopao'`，
-   host-plane 行 `name: 'dsh-paopao/settings-remote'`；config 覆盖须挂
+   `<DSH_HOME>/profiles/web/cordis.patch.yml`：主条目 `name: 'dsh-onebot-paopao'`，
+   host-plane 行 `name: 'dsh-onebot-paopao/settings-remote'`；config 覆盖须挂
    patch 顶层同 id 行（详见模板头注释）。
 3. **不要**在 profile 的 package.json 手写任何 `@deepseek-ai/*` 依赖——手写副本会
    覆盖宿主安装树成为拦截目标，造成版本错位双包。
@@ -119,8 +119,8 @@ dsh plugin --profile web add dsh-paopao
 ### 方式二：git clone 源码安装
 
 ```sh
-git clone <repo> ~/dsh-plugins/dsh-PaoPao
-cd ~/dsh-plugins/dsh-PaoPao
+git clone <repo> ~/dsh-plugins/dsh-onebot-paopao
+cd ~/dsh-plugins/dsh-onebot-paopao
 npm install --include=dev
 ./scripts/build.sh          # 链接宿主 @deepseek-ai 包 + tsc 编译 src/ → lib/
 ```
