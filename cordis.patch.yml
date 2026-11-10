@@ -8,7 +8,7 @@
 #
 # 行说明：
 # 1. `dsh-onebot` 主条目——挂载插件主入口（exports "."）。name 用裸包名
-#    `dsh-onebot-qq`：插件经 pnpm 装进 profile node_modules 后由运行时解析。
+#    `dsh-onebot-paopao`：插件经 pnpm 装进 profile node_modules 后由运行时解析。
 #    禁止对同一插件文件二次 insert（如再为 settings-remote 挂一次 lib/index.js）：
 #    同一插件文件双实例注册 = 冲突崩溃循环（DEVLOG.md:70 实测事故）。
 #    注意：config 覆盖须挂 patch 文档顶层的同 id 行（insert 块内行 configEditor
@@ -26,7 +26,7 @@
 # 绝对路径 name 不受锚定影响。）
 - insert:
   - id: dsh-onebot
-    name: 'dsh-onebot-qq'
+    name: 'dsh-onebot-paopao'
     # config: { mode: reverse, host: 127.0.0.1, port: 8643, ... }
   - id: onebot-settings-remote
-    name: 'dsh-onebot-qq/settings-remote'
+    name: 'dsh-onebot-paopao/settings-remote'
