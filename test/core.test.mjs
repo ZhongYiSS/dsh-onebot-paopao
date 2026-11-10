@@ -669,6 +669,24 @@ test('追聊那一轮：不判阈值、不掷骰，但照走限流和免打扰',
   }
 })
 
+test('追聊那一下标成 followup（回合结算据此不扣分，11-11）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const seen = []
+    const ticker = createTicker({
+      getPlan: () => mkPlan(mkProfile({ threshold: 0, triggerPmax: 1 })),
+      getHome: () => home,
+      deliver: async (arg) => { seen.push(arg.origin); return { ok: true, mode: 'dry' } },
+      now: () => now,
+      rnd: () => 0,
+    })
+    await ticker.tick('private:1', { followup: true })
+    await ticker.tick('private:1', { force: true })
+    assert.deepEqual(seen, ['followup', 'bubble'], '追聊标 followup、抽卡还标 bubble')
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
 test('会话自选：手填的 session id 只收规范形状（2026-11-08）', () => {
   // 合格：GUI 那种带 session- 的、插件早期按 QQ 号起的裸 id 都收
   assert.equal(validatePinSessionId('session-75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), undefined)
