@@ -45,10 +45,10 @@ test('目录正常：返回 launcher 绝对路径', () => {
 test('命令行：有机器号且允许快速登录才带 -q', () => {
   const dir = mk()
   try {
-    const a = buildLaunchCommand(dir, { uin: '3490240357', quickLogin: true })
+    const a = buildLaunchCommand(dir, { uin: '10001', quickLogin: true })
     assert.equal(a.file, 'cmd.exe')
-    assert.deepEqual(a.args, ['/c', '"' + launcherPath(dir) + '" -q 3490240357'])
-    const b = buildLaunchCommand(dir, { uin: '3490240357', quickLogin: false })
+    assert.deepEqual(a.args, ['/c', '"' + launcherPath(dir) + '" -q 10001'])
+    const b = buildLaunchCommand(dir, { uin: '10001', quickLogin: false })
     assert.deepEqual(b.args, ['/c', '"' + launcherPath(dir) + '"'])
     const c = buildLaunchCommand(dir, { uin: '', quickLogin: true })
     assert.equal(c.args[1].includes('-q'), false)
@@ -93,12 +93,12 @@ test('机器人号：从 config 目录的文件名里认出来，认不出回空
   try {
     assert.equal(detectBotQQ(dir), '', '空目录不该猜出号')
     mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(join(dir, 'config', 'onebot11_3490240357.json'), '{}', 'utf8')
-    assert.equal(detectBotQQ(dir), '3490240357')
+    writeFileSync(join(dir, 'config', 'onebot11_10001.json'), '{}', 'utf8')
+    assert.equal(detectBotQQ(dir), '10001')
     // 认出来了就带 -q；没有号就退回普通启动（扫码）
     const cmd = buildLaunchCommand(dir, { uin: detectBotQQ(dir), quickLogin: true })
     assert.ok(cmd, '应该拼出命令')
-    assert.ok(cmd.args.join(' ').includes('-q 3490240357'), '命令里没带 -q：' + cmd.args.join(' '))
+    assert.ok(cmd.args.join(' ').includes('-q 10001'), '命令里没带 -q：' + cmd.args.join(' '))
     const plain = buildLaunchCommand(dir, { uin: '', quickLogin: true })
     assert.ok(!plain.args.join(' ').includes('-q'), '没号时不该带 -q')
   } finally { rmSync(dir, { recursive: true, force: true }) }
@@ -122,10 +122,10 @@ test('二维码：超过 150 秒没更新就算过期（别拿旧图给人扫）
 })
 
 test('隐藏窗口启动脚本：Chr(34) 拼引号 + On Error 兜住（不弹 WSH 对话框）', () => {
-  const s = buildVbsScript('D:\\AI\\QQ\\NapCat.Shell', { uin: '3490240357', quickLogin: true, logPath: 'C:\\x\\err.log' })
+  const s = buildVbsScript('C:\\NapCat\\Shell', { uin: '10001', quickLogin: true, logPath: 'C:\\x\\err.log' })
   assert.match(s, /On Error Resume Next/)
   assert.match(s, /sh\.Run cmd, 0, False/, '必须是窗口样式 0（隐藏）')
-  assert.match(s, /Chr\(34\) & "D:\\AI\\QQ\\NapCat\.Shell\\launcher\.bat" & Chr\(34\) & " -q 3490240357"/)
+  assert.match(s, /Chr\(34\) & "C:\\NapCat\\Shell\\launcher\.bat" & Chr\(34\) & " -q 10001"/)
   assert.match(s, /CreateTextFile\("C:\\x\\err\.log", True\)/)
   const off = buildVbsScript('D:\\q', { uin: '123', quickLogin: false })
   assert.ok(!off.includes('-q 123'), '关了快速登录就不该带 -q')

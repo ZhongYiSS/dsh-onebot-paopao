@@ -696,7 +696,7 @@ test('会话自选：手填的 session id 只收规范形状（2026-11-08）', (
   assert.equal(validatePinSessionId('session-75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), undefined)
   assert.equal(validatePinSessionId('  session-mw1q97ni  '), undefined)
   assert.equal(validatePinSessionId('onebot-group-476694593'), undefined)
-  assert.equal(validatePinSessionId('onebot-private-1094335744-mw7j60ix'), undefined)
+  assert.equal(validatePinSessionId('onebot-private-12345678-mw7j60ix'), undefined)
   assert.equal(validatePinSessionId('75338a0e-ff8d-4d26-9fb2-8c7dfb67dcfe'), undefined)
   // 不合格：空、空格、太短、带路径
   assert.equal(validatePinSessionId(''), '没填会话 id')
