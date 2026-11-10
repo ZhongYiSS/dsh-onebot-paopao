@@ -173,3 +173,16 @@ test('改回自动：只删这一条，当前会话不动', async () => {
   assert.deepEqual(readPins(r), {})
   rmSync(r.dir, { recursive: true, force: true })
 })
+
+test('退休名单能列出来、也能放出来（不许只剩一个看不见的黑名单）', async () => {
+  const r = makeRegistry({ onDisk: [] })
+  r.retiredSessionIds.add('session-99999999-8888')
+  const list = await r.retiredSessions()
+  assert.equal(list.length, 1)
+  assert.equal(list[0].id, 'session-99999999-8888')
+  const out = await r.unretireSessionById('session-99999999-8888')
+  assert.equal(out.ok, true)
+  assert.equal(out.removed, true)
+  assert.equal(r.retiredSessionIds.has('session-99999999-8888'), false)
+  rmSync(r.dir, { recursive: true, force: true })
+})
