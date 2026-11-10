@@ -35,7 +35,9 @@
   "files": [
     "lib",
     "!lib/*.bak-*",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "bin",
+    "assets"
   ],
   "license": "BSD-3-Clause",
   "author": "dsh-onebot-qq contributors",
@@ -107,5 +109,8 @@
     "replay": "node scripts/replay.mjs",
     "verify:injected-context": "node scripts/verify-injected-context.mjs",
     "verify:lan-management": "node scripts/verify-lan-management.mjs"
+  },
+  "bin": {
+    "dsh-onebot-doctor": "bin/doctor.mjs"
   }
 }

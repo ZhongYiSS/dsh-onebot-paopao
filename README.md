@@ -51,7 +51,7 @@
 | 扣分与补分 | 每轮固定扣 `releaseBase`；会话在回复末尾写 `[SCORE 0-10]`（那是它自己的心情），插件按补分表退/追扣：10 分退 120%、5 分不退、1 分再扣 80%、0 分再扣 100%；下限 `wFloor` 可设 |
 | 事件池 | 抽中的只是一个「词」（说句话 / 刷视频 / 找张图 / 上网看看 / 甩表情包 / 发语音 / 翻旧账 / 提醒 / 唱首歌），怎么做由会话自己定；份数、抽中加分、自定义事件都能在设置页改 |
 | B站 | 按兴趣关键词轮转挑视频（不感兴趣的词、拉黑的 UP、口味账都能记）；发之前会抽字幕、抽帧看画面、必要时听口播，再决定推不推 |
-| 看视频 | `qq_video_look`：任意 B站 链接 / 本地文件 / 直链，`quick`（只读字幕）、`normal`（5 格九宫格）、`deep`（10 格）；按镜头切分、按画面变化分配帧、宫格底下画音轨条 |
+| 看视频 | `qq_video_look`：任意 B站 链接 / 本地文件 / 直链，`quick`（只读字幕）、`normal`（5 格九宫格）、`deep`（10 格）；按镜头切分、按画面变化分配帧、宫格底下画音轨条；B站 视频走 `playurl` 直连下载（分片 Range + ffmpeg 合成），不依赖 yt-dlp |
 | 定时话头 | 会话可以回 `[LATER 25]`（分钟）或 `[AT 23:30]`，插件到点叫醒它再说一轮；每天条数、最长几小时可配 |
 | 免打扰 | 时间段内不涨分、不抽卡；绑定开关关掉整条停摆 |
 | 记录 | 「做过的事」按会话分开，可切到积分视图看每一拍为什么没开口、扣了多少、补了多少 |
@@ -67,7 +67,15 @@
 | dsh | ≥ 0.1.5-rc.1（`engines.dsh`：0.1.5/0.1.6/0.1.7 全线 + 0.2.0 线 ≥0.2.0-rc.1；@deepseek-ai/* peer 依赖同范围，JsonValue 由 dsh-util-values 提供） |
 | Node.js | ≥ 22 |
 | OneBot 11 实现 | NapCat / Lagrange / LLOneBot / go-cqhttp（reverse 或 forward WebSocket） |
-| 可选依赖 | 语音转写需 ffmpeg + whisper CLI；t2i 文字图在 Linux 需 Noto CJK 字体 |
+| 可选依赖 | 语音转写需 ffmpeg + whisper CLI；无字幕视频听声音需 Python + `faster-whisper`（转写脚本随包，不必自己找）；B站 视频直连下载，**不需要 yt-dlp**（yt-dlp 只给站外链接用）；t2i 文字图在 Linux 需 Noto CJK 字体 |
+
+### 装完先做一次环境检查
+
+```sh
+node bin/doctor.mjs          # 或 npx dsh-onebot-doctor
+```
+
+一条命令列出：Node 版本、ws/canvas/fontkit、ffmpeg/ffprobe、yt-dlp、Python 与 faster-whisper、whisper CLI、B站 登录、视觉模型、NapCat 目录与进程，每项后面直接跟「缺了怎么补」（含 `winget install …` 这类一行命令）。只查不装、不改系统，退出码 0 表示没有硬伤。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
 最后验证：2026-10-12（0.9.0 发版批次 W1–W3 五特性：v4 命令审计 / verify 体检脚本 / 排队插话+autoSteerPolicy / 超时补发 / 诊断参考号——npx tsc --noEmit 零错误、vitest 532 用例全绿；M0 安全语义保持：reverse 空 token 拒绝启动、默认仅监听 127.0.0.1 为 BREAKING 变更，见下方配置表说明）。
 
