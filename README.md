@@ -167,6 +167,33 @@ WS 连接、图片下载、文件解析都依赖这条网络通路；NapCat 与 
 需要在 NapCat 侧**开启「文件转 URL」开关**，`get_file` 才会返回可下载的 http(s) url
 （否则返回容器内路径，本插件无法访问）。
 
+## 第一次用（从零把 QQ 接上）
+
+插件本身不碰 QQ 协议，它只是等 **NapCat** 把一条 WebSocket 拨进来（默认 `reverse` 模式）。
+设置页「陪伴 → 总览」最上面有一张**第一次用**的卡片，三盏灯分别提示：本插件在不在听、token 配没配、QQ 登没登。
+
+1. **装 NTQQ + NapCat**，然后起 NapCat 并用手机 QQ 扫码登录一次（二维码在 `<NapCat>/cache/qrcode.png`，会自己刷新）。
+   命令行起法（Windows，管理员）：
+
+   ```bat
+   REM NapCat 目录下，路径按自己装的改
+   cd /d D:\NapCat\NapCat.Shell
+   launcher.bat
+   REM 已经登录过一次、想免扫码：launcher.bat -q <机器人QQ号>
+   ```
+
+   想让它开机常驻，把上面这行做成计划任务或快捷方式即可；插件不需要任何额外的启动器。
+
+2. **在 NapCat 的 WebUI 里加一个「WebSocket 客户端」**：地址填卡片上那个 `ws://127.0.0.1:8643/ws`，
+   token 填插件里的 `accessToken`（设置页「复制 token」按钮直接给明文）。
+   两边 token 必须一致；`reverse` 模式下插件留空 token 会拒绝启动（fail-closed）。
+
+3. **回设置页看三盏灯**：都在听、token 一致、QQ 在线之后，再打开上面的「启用」。
+   拉一下 `GET /api/bubble/channel`，`connected: true` 就是真的通了。
+
+接好之后：`/chats` 能列出会话 → 总览里「＋ 加个会话」挑一个 QQ 号或群 → 权重开始涨，剩下的它会自己来。
+B站 那些能力（刷视频、看视频、回私信）在设置页「B站与视频」里单独登录，同样不依赖任何外部启动器。
+
 ## 配置
 
 完整配置项见 [src/index.ts](src/index.ts) 的 `Config` schema（schemastery 校验，均有默认值）。常用：
