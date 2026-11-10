@@ -16,6 +16,7 @@ import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
 import { matchCloseChat, matchOpenChat } from '../lib/inbound.js'
 import { validatePinSessionId, shortPinId } from '../lib/pin-id.js'
+import { defaultConfig, normalizeProfile } from '../lib/companion/app.mjs'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -924,4 +925,14 @@ test('他找上门那几份分：只给他起的轮，可以是负数（11-11）
   assert.equal(refundPct(120), 200, '12 分 +200%')
   assert.equal(refundPct(200), 200, '超过 12 分不越界')
   assert.equal(refundPct(-3), -100, '低于 0 分按 0 分')
+})
+test('他找上门多给几分跟着模式走：日常 1、主动 3（11-11 哥哥）', () => {
+  const cfg = defaultConfig()
+  const daily = cfg.profiles.find((p) => p.mode === 'daily')
+  const active = cfg.profiles.find((p) => p.mode === 'active')
+  assert.equal(daily.inboundBonus, 1, '日常默认给 1 分')
+  assert.equal(active.inboundBonus, 3, '主动默认给 3 分')
+  assert.equal(normalizeProfile({ inboundBonus: -2 }).inboundBonus, -2, '能填负数把分压回来')
+  assert.equal(normalizeProfile({}).inboundBonus, 1, '老配置没这个键就回落 1')
+  assert.equal(normalizeProfile({ inboundBonus: 99 }).inboundBonus, 10, '夹在 -10 ~ 10')
 })
