@@ -19,9 +19,11 @@
 
 ## 架构
 
-![dsh-onebot QQ 通道架构](docs/dsh-onebot-architecture.png)
+```
+用户(QQ) ←→ NapCat ←→ dsh-onebot 插件 ←→ dsh Agent（每个会话一个）
+```
 
-> 可交互版本（暗/亮主题切换 + 引导视图）：[docs/dsh-onebot-architecture.html](docs/dsh-onebot-architecture.html)；矢量版：[docs/dsh-onebot-architecture.svg](docs/dsh-onebot-architecture.svg)。
+> 上游仓库 `dsh-onebot` 里有一版可交互架构图（`docs/`）；本 fork 没带图片资源，就不放失效链接了。
 
 ## 功能
 

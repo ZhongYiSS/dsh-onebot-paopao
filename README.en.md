@@ -17,9 +17,11 @@ User(QQ) ←→ NapCat ←→ dsh-onebot plugin ←→ dsh Agent (one per chat)
 
 ## Architecture
 
-![dsh-onebot — QQ channel architecture](docs/dsh-onebot-architecture-en.png)
+```
+User (QQ) ←→ NapCat ←→ dsh-onebot plugin ←→ dsh Agent (one per chat)
+```
 
-> Interactive version (dark/light theme toggle + guided views): [docs/dsh-onebot-architecture.html](docs/dsh-onebot-architecture.html); vector version: [docs/dsh-onebot-architecture-en.svg](docs/dsh-onebot-architecture-en.svg).
+> The upstream `dsh-onebot` repo ships an interactive architecture diagram under `docs/`; this fork doesn't carry those image assets, so no dead links here.
 
 ## Features
 

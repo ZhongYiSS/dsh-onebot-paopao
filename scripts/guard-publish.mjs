@@ -72,6 +72,13 @@ for (const file of PUBLISH_FILES) {
     /* 可选文件不存在就算了 */
   }
 }
+// 仓库根目录的散落残件（手改留下的 .new/.bak）也算
+for (const entry of readdirSync(ROOT, { withFileTypes: true })) {
+  if (!entry.isFile()) continue;
+  if (BAD_NAMES.some((re) => re.test(entry.name))) {
+    problems.push(`${entry.name}：仓库根目录不该留备份/临时文件（挪去存档备份）`);
+  }
+}
 for (const full of shipped) {
   const base = full.slice(full.lastIndexOf(sep) + 1);
   if (BAD_NAMES.some((re) => re.test(base))) {
