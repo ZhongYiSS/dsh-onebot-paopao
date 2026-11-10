@@ -343,7 +343,9 @@ test('兴趣分：[SCORE n] 读得出、剥得干净', async () => {
   assert.equal(readScore('今天好累 [SCORE 8]'), 80)
   assert.equal(readScore('[score 0]'), 0)
   assert.equal(readScore('[SCORE 10]'), 100)
-  assert.equal(readScore('[SCORE 12]'), 100)   // 超 10 按 10 算
+  assert.equal(readScore('[SCORE 11]'), 110)   // 11-11 新加的档：+150%
+  assert.equal(readScore('[SCORE 12]'), 120)   // 12 分封顶：+200%
+  assert.equal(readScore('[SCORE 13]'), 120)   // 超 12 按 12 算
   assert.equal(readScore('没有分'), null)
   assert.equal(stripVerdict('正文 [SCORE 8] [HOLD]'), '正文')
 })
@@ -877,4 +879,76 @@ test('定时话头：限流卡满也照发（2026-11-09）', async () => {
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
+})
+
+test('一段对话只加一次事件 bonus（跟扣分同一个计次口径，11-11）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const t0 = new Date(2026, 10, 4, 12, 0).getTime()
+    const profile = mkProfile({ triggerPmax: 1, limitHours: 3, limitMax: 9 })
+    let now = t0
+    const ticker = createTicker({
+      getPlan: () => mkPlan(profile, 'private:1', { convIdleMinutes: 5 }),
+      getHome: () => home,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => now,
+      rnd: () => 0,
+    })
+    const buckets = readBuckets(home, 'private:1')
+    const b = bucketOf(buckets, 'private:1')
+    b.w = 70
+    b.window = []
+    writeBuckets(home, buckets)
+
+    const first = await ticker.tick('private:1', { force: true })
+    assert.equal(first.bonus, 5, '新的一段：加一次')
+
+    // 两分钟后又开口：还是同一段，不再加
+    now = t0 + 2 * 60_000
+    const second = await ticker.tick('private:1', { force: true })
+    assert.equal(second.bonus, 0, '同一段不加第二次')
+
+    // 隔 12 分钟（超过「对话间隔」5 分钟）：算新的一段，加回来
+    now = t0 + 12 * 60_000
+    const third = await ticker.tick('private:1', { force: true })
+    assert.equal(third.bonus, 5, '新的一段重新加')
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
+test('biliWeight 关掉只冻结「来料那段」，别的对话照常结算（11-11 吞分的 bug）', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'bubble-'))
+  try {
+    const { readBuckets, writeBuckets, bucketOf } = await import('../lib/companion/state.mjs')
+    const now = new Date(2026, 10, 4, 12, 0).getTime()
+    const profile = mkProfile({ triggerPmax: 1 })
+    let scored = null
+    const ticker = createTicker({
+      // biliWeight=false：以前这会把所有分都标成「已消费」不结算
+      getPlan: () => ({ ...mkPlan(profile), biliWeight: false }),
+      getHome: () => home,
+      scoreOf: () => scored,
+      deliver: async () => ({ ok: true, mode: 'dry' }),
+      now: () => now,
+      rnd: () => 0,
+    })
+    const buckets = readBuckets(home, 'private:1')
+    const b = bucketOf(buckets, 'private:1')
+    b.w = 40
+    b.window = []
+    writeBuckets(home, buckets)
+
+    // 普通对话（他找上来 / 她自己开口）的分：照常补
+    scored = { score: 100, at: now + 1 }
+    const r = await ticker.tick('private:1', { force: true })
+    assert.equal(r.scoreDelta, 24)
+
+    // B站 来料那一段的分：不动账，但要记成已消费，不能留着下一拍再结一次
+    scored = { score: 100, at: now + 120_000, origin: 'inbox' }
+    const r2 = await ticker.tick('private:1', { force: true })
+    assert.equal(r2.scoreDelta, undefined)
+    const r3 = await ticker.tick('private:1', { force: true })
+    assert.equal(r3.score, undefined)
+    assert.equal(r3.scoreDelta, undefined)
+  } finally { rmSync(home, { recursive: true, force: true }) }
 })
