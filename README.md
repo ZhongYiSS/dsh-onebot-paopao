@@ -188,6 +188,12 @@ WS 连接、图片下载、文件解析都依赖这条网络通路；NapCat 与 
    token 填插件里的 `accessToken`（设置页「复制 token」按钮直接给明文）。
    两边 token 必须一致；`reverse` 模式下插件留空 token 会拒绝启动（fail-closed）。
 
+   > 填了插件配置里的 `napcatDir`（NapCat 安装目录，含 `launcher.bat`）之后，这张卡下面会多出
+   > **启动 NapCat / 重启 NapCat / 看二维码 / 刷新** 四个按钮，二维码直接贴在卡里——不用再开小管家、也不用自己去找 png。
+   > 启动时若配了 `botQQ`，会用 `launcher.bat -q <botQQ>` 试免扫码快速登录。
+   > 「重启」会先结束 `NapCatWinBootMain.exe` 和 `QQ.exe` 再拉起（Hook 是开机注入的，不杀 QQ 等于没重启），
+   > 期间会断线十几秒，需要重新扫码就得点「看二维码」。
+
 3. **回设置页看三盏灯**：都在听、token 一致、QQ 在线之后，再打开上面的「启用」。
    拉一下 `GET /api/bubble/channel`，`connected: true` 就是真的通了。
 
