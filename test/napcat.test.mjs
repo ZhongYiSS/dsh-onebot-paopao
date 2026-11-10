@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   launcherPath, qrPath, validateNapcatDir, buildLaunchCommand,
-  parseTasklist, qrInfo, guessNapcatDir, resolveNapcatDir,
+  parseTasklist, qrInfo, guessNapcatDir, resolveNapcatDir, detectBotQQ,
 } from '../lib/napcat.js'
 
 const mk = (withLauncher = true) => {
@@ -85,5 +85,21 @@ test('自动探测：环境变量指到哪就用哪；填的目录优先且填�
     const bad = resolveNapcatDir(join(tmpdir(), 'napcat-绝对没有-9999'), { env: { NAPCAT_DIR: dir } })
     assert.equal(bad.ok, false)
     assert.equal(bad.auto, false)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('机器人号：从 config 目录的文件名里认出来，认不出回空串', () => {
+  const dir = mk()
+  try {
+    assert.equal(detectBotQQ(dir), '', '空目录不该猜出号')
+    mkdirSync(join(dir, 'config'), { recursive: true })
+    writeFileSync(join(dir, 'config', 'onebot11_3490240357.json'), '{}', 'utf8')
+    assert.equal(detectBotQQ(dir), '3490240357')
+    // 认出来了就带 -q；没有号就退回普通启动（扫码）
+    const cmd = buildLaunchCommand(dir, { uin: detectBotQQ(dir), quickLogin: true })
+    assert.ok(cmd, '应该拼出命令')
+    assert.ok(cmd.args.join(' ').includes('-q 3490240357'), '命令里没带 -q：' + cmd.args.join(' '))
+    const plain = buildLaunchCommand(dir, { uin: '', quickLogin: true })
+    assert.ok(!plain.args.join(' ').includes('-q'), '没号时不该带 -q')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
