@@ -70,7 +70,8 @@
         "bili_coin",
         "bili_fav",
         "bili_comment",
-        "bili_send_message"
+        "bili_send_message",
+        "bili_pick_video"
       ],
       "skills": []
     }
