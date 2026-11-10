@@ -37,6 +37,25 @@ User(QQ) ←→ NapCat ←→ dsh-onebot plugin ←→ dsh Agent (one per chat)
 | Ops | Hot reload: **config overrides** and **insert additions/removals** in the profile-level patch take effect hot — the plugin fiber restarts in place within seconds (the host process is not restarted; cost: one second-level QQ bridge reconnect, in-flight turns interrupted); touch / no-content-change triggers nothing; changes to the bundle's built-in patch, repo templates, deployment-copy patch files, or the root `cordis.yml` do **not** hot-reload; temp media TTL cleanup |
 | Prompt | Injects QQ platform notes automatically (plain-text output, `[图片]`/`[语音]` placeholders for incoming images/voice, tool & command guidance, host interaction cards banned); injected into **each QQ chat agent's own scope**, invisible to Web sessions |
 
+## Companion layer (Bubble)
+
+Besides being a QQ bot, the plugin carries a companion layer: the session decides on its own when to reach out. The plugin never writes a single word for it — it only keeps score and hands over a prompt.
+
+| Capability | What it does |
+|---|---|
+| Weight | One score per chat (DM or group), rising by `risePerTick` every tick; a roll happens only above `threshold`, with `p = triggerPmax × weight / 100` |
+| Spend / refund | Every turn costs `releaseBase`; the session appends `[SCORE 0-10]` (its own mood) and the plugin refunds or charges extra per the table (10 → refund 120%, 5 → nothing, 1 → charge 80% more, 0 → 100% more); floor configurable via `wFloor` |
+| Event pool | A roll only picks a *word* (say something / pick a video / find a picture / browse / meme / voice / reminisce / remind / sing) — what to do with it is up to the session; weights, bonus and custom events are editable in the settings page |
+| Bilibili | Picks videos by rotating interest keywords (blocked words, blocked uploaders and a taste ledger included); before recommending it pulls subtitles, samples frames and listens to speech |
+| Video look | `qq_video_look`: any Bilibili link, local file or direct URL; `quick` (subtitles only), `normal` (5 grids), `deep` (10 grids); shot-based sampling, motion-weighted frames, audio level strip under each grid |
+| Scheduled cue | The session can reply `[LATER 25]` / `[AT 23:30]`; the plugin wakes it later. Daily quota and max delay are configurable |
+| Quiet hours | No score rise or rolls inside the window; turning a binding off stops everything for that chat |
+| Records | A "what it did" view per chat, plus a ledger view showing why each tick stayed silent and how the score moved |
+
+Settings are split into **Companion** (overview / chats / cadence / events / activity / help), **Bilibili & video**, and **QQ channel**.
+
+> Everything personal (persona `promptExtra`, meme directory `memeDir`, owner QQ `ownerQQ`, image whitelists `mediaFreeDirs` / `mediaDrawDirs`, vision model and gateway) lives in configuration — no local literals in the code. Leave them empty and the plugin still works, just without that persona and its privileges.
+
 ## Compatibility
 
 | Item | Requirement |
