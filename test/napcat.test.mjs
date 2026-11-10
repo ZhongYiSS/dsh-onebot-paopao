@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   launcherPath, qrPath, validateNapcatDir, buildLaunchCommand,
-  parseTasklist, qrInfo, guessNapcatDir, resolveNapcatDir, detectBotQQ,
+  parseTasklist, qrInfo, guessNapcatDir, resolveNapcatDir, detectBotQQ, QR_STALE_SEC,
 } from '../lib/napcat.js'
 
 const mk = (withLauncher = true) => {
@@ -101,5 +101,22 @@ test('机器人号：从 config 目录的文件名里认出来，认不出回空
     assert.ok(cmd.args.join(' ').includes('-q 3490240357'), '命令里没带 -q：' + cmd.args.join(' '))
     const plain = buildLaunchCommand(dir, { uin: '', quickLogin: true })
     assert.ok(!plain.args.join(' ').includes('-q'), '没号时不该带 -q')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('二维码：超过 150 秒没更新就算过期（别拿旧图给人扫）', () => {
+  const dir = mk()
+  try {
+    mkdirSync(join(dir, 'cache'), { recursive: true })
+    const p = qrPath(dir)
+    writeFileSync(p, Buffer.from('89504e47', 'hex'))
+    const now = Date.now()
+    const fresh = qrInfo(dir, now + 30_000)
+    assert.equal(fresh.exists, true)
+    assert.equal(fresh.stale, false)
+    assert.ok(fresh.ageSec >= 29 && fresh.ageSec <= 31, '年龄算错了：' + fresh.ageSec)
+    const old = qrInfo(dir, now + 600_000)
+    assert.equal(old.stale, true, '10 分钟前的图应该判过期')
+    assert.equal(QR_STALE_SEC, 150)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
