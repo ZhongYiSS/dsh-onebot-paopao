@@ -24,6 +24,22 @@ User(QQ) ←→ NapCat ←→ dsh-onebot plugin ←→ dsh Agent (one per chat)
                         └─ Outbound: single/t2i-card send, Markdown stripping, [[qq_forward]], image/voice/video/file tools
 ```
 
+## Three-minute install
+
+```sh
+# 1. install (either line)
+dsh plugin --profile desktop add github:ZhongYiSS/dsh-onebot-paopao
+dsh plugin --profile desktop add dsh-onebot-paopao     # once published to npm
+
+# 2. restart DSH (a plugin only mounts on restart)
+# 3. Web UI → Settings → PaoPao → Overview → "Check environment"
+```
+
+Then: Settings → PaoPao → "First run" → **Start NapCat** → scan the QR once → fill in the bot QQ number
+under **QQ channel** → send the bot a message from another account; a reply means it is wired up.
+
+Source install, manual `cordis.patch.yml` merging and platform notes live in [Installation](#installation).
+
 ## Architecture
 
 ```
@@ -76,7 +92,7 @@ Settings are split into **Companion** (overview / chats / cadence / events / act
 | OneBot 11 impl | NapCat / Lagrange / LLOneBot / go-cqhttp (reverse or forward WebSocket) |
 | Optional deps | Voice transcription needs ffmpeg + whisper CLI; t2i text images need Noto CJK fonts on Linux |
 
-Last verified: 2026-10-12 (0.9.0 release batch W1–W3 five features: v4 command audit / verify health-check script / queue+steer with autoSteerPolicy / deferred delivery on timeout / diagnostic reference IDs — npx tsc --noEmit clean, 532/532 vitest green; M0 security semantics unchanged: reverse mode refuses an empty accessToken and defaults to 127.0.0.1, see the BREAKING note under the config table).
+Last verified: 2026-11-10 (0.2.0: companionship layer + Bilibili video picking + video watching + session pinning + environment check) — `npm test` **86/86 green**, `node scripts/guard-publish.mjs` clean (106 files, 17 tools).
 
 ## Installation
 
@@ -454,7 +470,7 @@ automatically from the system and fixed paths at startup; missing glyphs render 
 
 ```sh
 ./scripts/build.sh                 # compile src/ → lib/
-./node_modules/.bin/vitest run     # 306 tests: unit + real WS peer + full pipeline
+npm test                           # 86 tests (node:test): weights / events / limits / session pinning / ledger
 ```
 
 Lessons ported from the source DEVLOG:

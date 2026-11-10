@@ -110,3 +110,10 @@ Copyright (c) 2026 AGI_Ananas 的 MIT 全文。
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | 站外链接下载（可选，B站 走 playurl 不需要它） | Unlicense |
 
 运行时依赖（`ws` 等）各自的许可随 npm 包分发，未在此重复抄录。
+
+## 本项目的许可与上游关系
+
+本项目（`dsh-onebot-paopao`，MIT）是 dsh-onebot（BSD 3-Clause）的衍生作品，部分思路参考了 dsh-bili-scroll（MIT）。
+两份许可的全文与版权声明都在上面，按各自条款保留。
+
+> This project is a derivative of dsh-onebot (BSD 3-Clause) and was inspired in part by dsh-bili-scroll (MIT). Both licenses are reproduced in full above, as their terms require.

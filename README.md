@@ -19,6 +19,22 @@
                         └─ 出站：单条/t2i 卡片发送、Markdown 剥离、[[qq_forward]]、图片/语音/视频/文件工具
 ```
 
+## 三分钟装好
+
+```sh
+# 1. 装插件（二选一）
+dsh plugin --profile desktop add github:ZhongYiSS/dsh-onebot-paopao
+dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
+
+# 2. 重启 DSH（插件要重启才挂得上）
+# 3. Web 界面 → 设置 → 泡泡 → 总览 → 「检查环境」，缺什么按提示补
+```
+
+然后：设置页「泡泡 → 第一次用」里点「启动 NapCat」→ 扫码登录一次 → 在「QQ 通道」填机器人 QQ 号 →
+用另一个号给它发一句话，收到回复就算接通了。
+
+装不上、要走源码安装、要手动合并 `cordis.patch.yml` 的，看下面的[安装](#安装)一节。
+
 ## 架构
 
 ```
@@ -79,7 +95,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 一条命令列出：Node 版本、ws/canvas/fontkit、ffmpeg/ffprobe、yt-dlp、Python 与 faster-whisper、whisper CLI、B站 登录、视觉模型、NapCat 目录与进程，每项后面直接跟「缺了怎么补」（含 `winget install …` 这类一行命令）。只查不装、不改系统，退出码 0 表示没有硬伤。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-10-12（0.9.0 发版批次 W1–W3 五特性：v4 命令审计 / verify 体检脚本 / 排队插话+autoSteerPolicy / 超时补发 / 诊断参考号——npx tsc --noEmit 零错误、vitest 532 用例全绿；M0 安全语义保持：reverse 空 token 拒绝启动、默认仅监听 127.0.0.1 为 BREAKING 变更，见下方配置表说明）。
+最后验证：2026-11-10（0.2.0：陪伴层 + B站 挑视频 + 看视频 + 钉会话 + 检查环境）——`npm test` **86 个用例全绿**、`node scripts/guard-publish.mjs` 通过（106 个文件、17 个工具）。
 
 ## 安装
 
@@ -446,7 +462,7 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 
 ```sh
 ./scripts/build.sh                 # 编译 src/ → lib/
-./node_modules/.bin/vitest run     # 306 个测试：单元 + 真实 WS 对端 + 全管线
+npm test                           # 86 个测试（node:test）：权重 / 事件 / 限制 / 会话钉 / 积分流水
 ```
 
 要点（来自移植源 DEVLOG 的教训）：
