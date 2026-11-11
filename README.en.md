@@ -1,5 +1,9 @@
 # dsh-onebot-paopao (PaoPao)
 
+> ⚠️ **Major bug — do not install.** The 0.5.0 defaults are broken: a fresh install has an empty event pool
+> (no labels, so the plugin never speaks up), some settings still display raw millisecond values, and the
+> dependency list is too heavy. Being fixed — please wait.
+
 > **English | [中文](README.md)**
 
 A QQ channel plus a companionship layer for DeepSeek Harness.

@@ -1,5 +1,9 @@
 # dsh-onebot-paopao（泡泡）
 
+> ⚠️ **重大 bug，请勿下载。** 0.5.0 的默认值有问题：新装的事件池是空的（标签没词，插件根本不会开口）、部分设置项显示的还是毫秒换算错的数字、跑起来要的依赖也多。正在修，修好之前别装。
+>
+> ⚠️ **major bug, do not install.** The 0.5.0 defaults are broken: a fresh install has an empty event pool (no labels, so it never speaks), some settings still show raw millisecond values, and the dependency list is too heavy. Being fixed — please wait.
+
 > **[English](README.en.md) | 中文**
 
 给 DeepSeek Harness 加上 QQ 通道，再加一层会自己找话说的陪伴层。A QQ channel and a companionship layer for dsh.
