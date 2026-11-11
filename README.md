@@ -95,7 +95,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 一条命令列出：Node 版本、ws/canvas/fontkit、ffmpeg/ffprobe、yt-dlp、Python 与 faster-whisper、whisper CLI、B站 登录、视觉模型、NapCat 目录与进程，每项后面直接跟「缺了怎么补」（含 `winget install …` 这类一行命令）。只查不装、不改系统，退出码 0 表示没有硬伤。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-10（0.2.0：陪伴层 + B站 挑视频 + 看视频 + 钉会话 + 检查环境）——`npm test` **86 个用例全绿**、`node scripts/guard-publish.mjs` 通过（106 个文件、17 个工具）。
+最后验证：2026-11-11（0.5.0：话头可编辑 + 聊天强制事件 + 权重当场结算 + QQ 总开关）——`npm test` **95 个用例全绿**、`node scripts/guard-publish.mjs` 通过（108 个文件、17 个工具）。
 
 ## 安装
 
@@ -462,7 +462,7 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 
 ```sh
 ./scripts/build.sh                 # 编译 src/ → lib/
-npm test                           # 86 个测试（node:test）：权重 / 事件 / 限制 / 会话钉 / 积分流水
+npm test                           # 95 个测试（node:test）：权重 / 事件 / 话头 / 聊天强制事件 / 限制 / 会话钉 / 积分流水
 ```
 
 要点（来自移植源 DEVLOG 的教训）：

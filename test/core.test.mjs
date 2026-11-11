@@ -122,12 +122,37 @@ test('mergePool 留住自己填的补充', () => {
 
 test('话头只递词；填了补充才多说一句', async () => {
   const { buildHint } = await import('../lib/companion/prompt.mjs')
+  // 11-11 哥哥 m17382：话头模板开放给设置页，默认模板不再写「这一轮的词：」这种派工口气，
+  // 但「抽中的词」本身还得递到（事件没配台词时兜底用它）。
   const bare = buildHint({ event: { label: '刷视频', hint: '' } })
-  assert.ok(bare.includes('这一轮的词：刷视频'))
+  assert.ok(bare.includes('刷视频'))
   assert.ok(!bare.includes('补充：'))
   assert.ok(!bare.includes('去 B站 搜一轮'))
   const withHint = buildHint({ event: { label: '刷视频', hint: '挑短的' } })
   assert.ok(withHint.includes('补充：挑短的'))
+})
+
+test('机制说明固定压在最后；「不用交代来路」留给用户自己删', async () => {
+  const { renderCue, FIXED_FOOTER, TICK_FOOTER, normalizeCue } = await import('../lib/companion/cue.mjs')
+  assert.deepEqual(FIXED_FOOTER, ['不想发就写 [HOLD]，插件会替你吞掉。'], '固定的只有 [HOLD] 这一条')
+  assert.deepEqual(TICK_FOOTER, ['本轮不用打分。'], '抽卡轮加的那句')
+  const body = { template: 'A {{period}}', lines: {} }
+  const text = renderCue({ cue: body, kind: 'bubble', periodLabel: '深夜', event: { id: 'chat', label: '说句话' } })
+  assert.ok(text.endsWith(TICK_FOOTER[0]), '抽卡轮最后是「本轮不用打分」')
+  assert.ok(text.includes(FIXED_FOOTER[0]), '说明也在')
+  // 只有抽卡轮有这句：来料、追聊都不加
+  for (const k of ['inbox', 'followup']) {
+    const other = renderCue({ cue: body, kind: k, periodLabel: '深夜', event: { id: 'chat', label: '说句话' } })
+    assert.ok(!other.includes('本轮不用打分'), k + ' 不该有这句')
+    assert.ok(other.endsWith(FIXED_FOOTER[0]), k + ' 最后仍是 [HOLD] 说明')
+  }
+  assert.equal(text.split('[HOLD]').length - 1, 1, '只出现一次')
+  // 老配置：一行里同时有「不用交代来路」和 [HOLD] → 只剥掉 [HOLD] 那句，别的字留着
+  const old = normalizeCue({ template: 'A {{period}}\n不用交代来路，像平时那样说就行。不想发就写 [HOLD]，插件会替你吞掉。' })
+  assert.equal(old.template, 'A {{period}}\n不用交代来路，像平时那样说就行。')
+  // 用户自己把这行删了 → 就该没有
+  const gone = renderCue({ cue: normalizeCue({ template: 'A {{period}}', lines: {} }), kind: 'bubble', periodLabel: '深夜' })
+  assert.ok(!gone.includes('交代来路'))
 })
 
 test('滑动窗口是真滚动', () => {
@@ -935,4 +960,40 @@ test('他找上门多给几分跟着模式走：日常 1、主动 3（11-11 哥�
   assert.equal(normalizeProfile({ inboundBonus: -2 }).inboundBonus, -2, '能填负数把分压回来')
   assert.equal(normalizeProfile({}).inboundBonus, 1, '老配置没这个键就回落 1')
   assert.equal(normalizeProfile({ inboundBonus: 99 }).inboundBonus, 10, '夹在 -10 ~ 10')
+})
+
+test('聊天强制事件：老配置的两个概率迁成列表，表情包那条永远在（11-11 哥哥）', async () => {
+  const { normalizeRolls, MEME_ROLL, isLiveRoll } = await import('../lib/companion/chatroll.mjs')
+  const a = normalizeRolls(undefined, { memeChance: 0.33, voiceChance: 0.1 })
+  assert.equal(a[0].id, 'meme', '第一条是内置的表情包')
+  assert.equal(a[0].chance, 33, '0.33 迁成 33%')
+  assert.equal(a[0].builtin, true, '表情包标成内置')
+  assert.equal(a[1].id, 'voice', '语音那条跟着迁过来')
+  assert.equal(a[1].chance, 10, '0.1 迁成 10%')
+  assert.equal(a[1].gate, 'voice', '语音要过嗓子在线那一关')
+  const b = normalizeRolls(undefined, { memeChance: 0, voiceChance: 0 })
+  assert.equal(b.length, 1, '语音 0 就不迁；表情包留着但关掉')
+  assert.equal(b[0].enabled, false, '表情包 0% 就是关着')
+  assert.equal(MEME_ROLL.label, '这轮必须发个表情包，除非做不到')
+  assert.equal(isLiveRoll({ enabled: false, chance: 50, label: 'x' }), false, '关掉的不算活')
+  assert.equal(isLiveRoll({ enabled: true, chance: 0, label: 'x' }), false, '0% 不算活')
+  assert.equal(isLiveRoll({ enabled: true, chance: 5, label: '  ' }), false, '没写词不算活')
+})
+
+test('聊天强制事件：每条独立掷，中了多条只算概率大的那条，全没中就什么都不塞', async () => {
+  const { pickRoll, rollLine, normalizeRolls } = await import('../lib/companion/chatroll.mjs')
+  const rolls = normalizeRolls([
+    { id: 'meme', label: '这轮必须发个表情包，除非做不到', chance: 30, enabled: true },
+    { id: 'r1', label: '这轮必须叫他一声哥哥', chance: 60, enabled: true },
+  ])
+  // rnd 返回 0 → 两条都中 → 取概率大的 r1
+  assert.equal(pickRoll(rolls, () => 0).id, 'r1', '都中时按概率大的算')
+  // rnd 返回 0.5 → meme(30%) 没中、r1(60%) 中了
+  assert.equal(pickRoll(rolls, () => 0.5).id, 'r1', '30% 的没中就是没中')
+  // rnd 返回 0.8 → 都超过，什么都没中
+  assert.equal(pickRoll(rolls, () => 0.8), null, '都没中 → null')
+  assert.equal(rollLine(null), '', '没中一个字都不塞')
+  assert.equal(rollLine({ label: '这轮必须发条语音' }), '[本轮] 这轮必须发条语音', '中了就塞这一行')
+  const off = normalizeRolls([{ id: 'meme', label: 'x', chance: 50, enabled: false }], {}, { ensureMeme: false })
+  assert.equal(pickRoll(off, () => 0), null, '全关着就永远不塞（不会偷偷把表情包加回来）')
 })
