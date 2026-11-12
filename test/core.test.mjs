@@ -1093,3 +1093,38 @@ test('accessToken 留空时自动生成并落盘，下次沿用同一个', async
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// 11-12 同一个片子被抽到第二次：视频账本只有「回复正文」一条路会写，
+// 媒体工具（qq_send_video）直发的封面+链接根本没记账。
+test('发出去的视频记进账本，30 天内不再抽到；卡片 json 段里的 BV 也算', async () => {
+  const { noteSentVideo, readVideos, canPickVideo, segmentsText, bvidsInText } = await import('../lib/companion/video-log.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'paopao-video-'))
+  try {
+    const bv = 'BV1GJ411x7h7'
+    assert.deepEqual(readVideos(dir).sent, {}, '一开始是空账')
+
+    // 媒体工具的发送形态：先一张图，再一段「标题 + 链接」文本
+    const flat = segmentsText([
+      { type: 'image', data: { file: 'https://i0.hdslb.com/x.jpg' } },
+      { type: 'text', data: { text: '标题\nUP：谁\nhttps://www.bilibili.com/video/' + bv } },
+    ])
+    assert.equal(bvidsInText(flat)[0], bv, '正文里的 BV 认得出')
+
+    // 卡片形态：BV 只在 json 段里
+    const cardJson = segmentsText([{ type: 'json', data: { data: '{"qqdocurl":"https://b23.tv/' + bv + '"}' } }])
+    assert.equal(bvidsInText(cardJson)[0], bv, '卡片 json 里的 BV 也认得出')
+
+    // 记账 → 抽不到第二次
+    assert.equal(noteSentVideo(dir, { bvid: bv, chatId: 'private:1' }), true)
+    assert.equal(readVideos(dir).sent[bv].chatId, 'private:1')
+    assert.equal(canPickVideo(dir, bv), false, '30 天内不再自动抽到')
+    assert.equal(canPickVideo(dir, bv, { again: true }), true, 'again 只放开 30 天那份')
+
+    // 过期的记录读的时候就被清了
+    const old = Date.now() - 31 * 86400_000
+    noteSentVideo(dir, { bvid: 'BV1aaaaaaaaa', now: old })
+    assert.equal(readVideos(dir).sent['BV1aaaaaaaaa'], undefined, '31 天前的自动清掉')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

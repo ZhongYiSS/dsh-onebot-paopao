@@ -2,6 +2,12 @@
 
 版本号从 `0.9.6-companion.1` 起改成 `0.2.0`：之前那串是个人自用版，正式对外发的是这条线。之后按功能增量走 0.3 / 0.4 / 0.5。
 
+**同一条视频会被抽到第二次**
+
+- 真正的账本是 `$DSH_HOME/bubble/videos.json`（发出去的 30 天内不再抽、黑名单永久），可它只有「回复正文带 BV 号」这一条路会写；`qq_send_video` 走的是 `sendSegments`（封面图 + 标题/链接，或卡片 json），绕过了那条路——所以 `sent` 一直是空的，同一支片子能反复出现。
+- 现在 `lib/bridge.js` 的 `sendSegments` 把发出去的段拍平（text 段取正文，其余段序列化，BV 号藏在卡片 json 里也能看见），带 BV 就记一笔。抽纯函数 `segmentsText` / `bvidsInText` 进 `lib/companion/video-log.mjs`，配一条测试。
+- 顺手删掉 `state.json` 里从没写过的 `pushedBvids`（那是死字段，账本只有一个地方：videos.json）。
+
 ## 0.5.3 — 2026-11-12
 
 **accessToken 不再是死锁**
