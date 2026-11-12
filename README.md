@@ -28,7 +28,9 @@
 **装之前先确认这三样**（缺一样都连不上 QQ）：
 
 1. **NapCat 要以管理员身份运行** —— 它要把自己注入 QQ 进程，不提权起不来（自动拉起时会卡 UAC 弹窗，插件会跳过并提示）。
-2. **QQ 客户端版本要钉住** —— 本插件按 NapCat 的适配表工作，目前只支持到 `9.9.36-53644`，实测稳定的是 `9.9.33-52230`。QQ 自动更新到更新的版本会报 `PacketBackend 不支持当前QQ版本`，去 `C:\Program Files\Tencent\QQNT\versions` 换回旧版并把自动更新关掉。
+2. **QQ 客户端版本要钉住** —— 插件不认识 QQ 协议，是 NapCat 按 QQ 的 build 号打补丁，所以 QQ 必须落在 NapCat 那张表里：表的上限随 NapCat 版本走（4.18.41 到 `9.9.36-53644`，4.18.42 到 `9.9.37-54276`），实测最稳的是 `9.9.33-52230`。QQ 自动更新到表外的新 build，NapCat 注入后没有二维码、QQ 还会弹「文件已损坏」，插件侧报 `PacketBackend 不支持当前QQ版本架构`。
+   查自己的表：`cd <NapCat目录> && grep -o -a "9[.]9[.][0-9]*-[0-9]*-x64" napcat.mjs | sort -u | tail -3`。
+   修法是把 NapCat 用的 QQ 换回表内版本（单独拷一份 QQ 目录、改 `launcher.bat` 里的 `QQPath`，不动系统 QQ），并把那份副本的自动更新关掉。
 3. **VC++ 运行库** —— 缺了 NapCat 会 0xC0000135 秒退；装一下 `winget install Microsoft.VCRedist.2015+.x64`。
 
 ```sh
@@ -39,6 +41,10 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 # 2. 重启 DSH（插件要重启才挂得上）
 # 3. Web 界面 → 设置 → 泡泡 → 总览 → 「检查环境」，缺什么按提示补
 ```
+
+> **机器上没有 git**（`github:` 简写要靠 git 去 clone）：把 profile 的 `package.json` 里那一行换成 codeload 的 tar.gz 直链，pnpm 认这种依赖：
+> `"dsh-onebot-paopao": "https://codeload.github.com/ZhongYiSS/dsh-onebot-paopao/tar.gz/<commit>"`
+> 或者 `npm pack` 出一个 `.tgz` 再装。装完记得重启 DSH。
 
 然后：设置页「泡泡 → 第一次用」里点「启动 NapCat」→ 扫码登录一次 → 在「QQ 通道」填机器人 QQ 号 →
 用另一个号给它发一句话，收到回复就算接通了。
@@ -96,7 +102,7 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 | Node.js | ≥ 22 |
 | OneBot 11 实现 | NapCat / Lagrange / LLOneBot / go-cqhttp（reverse 或 forward WebSocket） |
 | **NapCat 权限** | **必须管理员运行**（要注入 QQ 进程）；非管理员时插件只跳过自动拉起，不会去弹 UAC |
-| **QQ 客户端** | **按 NapCat 适配表，最高 `9.9.36-53644`，实测 `9.9.33-52230` 稳**；更新的版本报 `PacketBackend 不支持当前QQ版本架构` |
+| **QQ 客户端** | **必须是 NapCat 适配表里的 build**（上限随 NapCat 版本变：4.18.41 到 `9.9.36-53644`，4.18.42 到 `9.9.37-54276`），实测 `9.9.33-52230` 稳；表外的版本报 `PacketBackend 不支持当前QQ版本架构` |
 | **VC++ 运行库** | 缺了 NapCat 秒退 `0xC0000135`；`winget install Microsoft.VCRedist.2015+.x64` |
 | 可选依赖 | 语音转写需 ffmpeg + whisper CLI；无字幕视频听声音需 Python + `faster-whisper`（转写脚本随包，不必自己找）；B站 视频直连下载，**不需要 yt-dlp**（yt-dlp 只给站外链接用）；t2i 文字图在 Linux 需 Noto CJK 字体 |
 
@@ -416,7 +422,7 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 
 | 选项 | dmPolicy（私聊） | groupPolicy（群聊） |
 |---|---|---|
-| `open` | **仅管理员**可私聊（adminUsers/`ONEBOT_ALLOWED_USERS`；设 `allowAllUsers: true` 则所有人可） | **所有群**可聊（群内消息受 `requireMention` 控制：需 @ 或回复机器人的消息才触发；群成员带 [受限用户:仅问答] 软限制） |
+| `open` | **仅管理员**可私聊（`adminUsers`/`ONEBOT_ALLOWED_USERS`/`ownerQQ`；`allowAllUsers` 对私聊**已经不管用**——私聊等于这部电脑的完整控制权，不能交给任意人） | **所有群**可聊（默认值已改成 `allowlist`，要放开得自己改；群内消息还受 `requireMention` 控制：需 @ 或回复机器人的消息才触发；群成员带 [受限用户:仅问答] 软限制） |
 | `allowlist` | 仅 **`allowFrom`** 白名单 QQ 可私聊（不要求是管理员） | 仅 **`groupAllowFrom`** 白名单群可聊 |
 | `disabled` | 私聊全部拒绝 | 群聊全部拒绝 |
 
@@ -496,6 +502,7 @@ npm test                           # 99 个测试（node:test）：权重 / 事�
 | 症状 | 原因与处理 |
 |---|---|
 | 群聊不响应 | `requireMention: true` 时需 @ 或回复机器人的消息才触发；@ 检测 fail-closed——确认 botQQ 已从 meta 事件学习，或显式配置 |
+| 私聊发了完全没反应 | ①发送人不在管理员里：填 `ownerQQ`（面板「设置 → 其他」里叫「主人 QQ」）或 `adminUsers`；②你在用**机器人自己的号**发——`ignoreSelf` 默认 true，自己发的消息一律丢弃，换别的号测 |
 | 图片下载 403 | NapCat 会把 URL 中的 `&` 转成 `&amp;`（解析已自动反转义）；仍失败可查日志中 media 下载行 |
 | 文件接收失败 | 非本机部署 NapCat 时需开启「文件转 URL」开关，否则 get_file 返回容器内路径不可达；确认 dsh 与 NapCat 网络互通 |
 | 文字图中文豆腐块 | Linux 未装 CJK 字体：`apt install fonts-noto-cjk`，并用 `fontFiles` 指定 SC 字体文件 |

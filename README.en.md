@@ -33,7 +33,9 @@ User(QQ) ←→ NapCat ←→ dsh-onebot plugin ←→ dsh Agent (one per chat)
 **Check these three first** (missing any one and QQ will not connect):
 
 1. **NapCat must run as administrator** — it injects itself into the QQ process; unelevated it cannot start (auto-launch will skip with a note instead of popping UAC).
-2. **Pin the QQ client version** — the plugin follows NapCat's packet table, which tops out at `9.9.36-53644`; `9.9.33-52230` is the tested one. A newer QQ reports `PacketBackend 不支持当前QQ版本架构`; switch back under `C:\Program Files\Tencent\QQNT\versions` and turn auto-update off.
+2. **Pin the QQ client version** — the plugin doesn't speak QQ's protocol; NapCat patches it per QQ build, so QQ must be a build in NapCat's table. The table's ceiling moves with NapCat (4.18.41 → `9.9.36-53644`, 4.18.42 → `9.9.37-54276`); `9.9.33-52230` is the tested one. A newer QQ yields no QR code, QQ says "file is corrupted", and the plugin logs `PacketBackend 不支持当前QQ版本架构`.
+   Check your own table: `cd <NapCat dir> && grep -o -a "9[.]9[.][0-9]*-[0-9]*-x64" napcat.mjs | sort -u | tail -3`.
+   Fix by keeping a separate QQ copy at a supported build (point `QQPath` in `launcher.bat` at it, leave the system QQ alone) with auto-update off.
 3. **VC++ runtime** — without it NapCat dies instantly with `0xC0000135`; run `winget install Microsoft.VCRedist.2015+.x64`.
 
 ```sh
@@ -44,6 +46,10 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # once published to npm
 # 2. restart DSH (a plugin only mounts on restart)
 # 3. Web UI → Settings → PaoPao → Overview → "Check environment"
 ```
+
+> **No git on the machine** (`github:` shells out to git): replace that line in the profile's `package.json` with a codeload tarball, which pnpm accepts:
+> `"dsh-onebot-paopao": "https://codeload.github.com/ZhongYiSS/dsh-onebot-paopao/tar.gz/<commit>"`
+> — or `npm pack` a `.tgz` and install that. Restart DSH afterwards.
 
 Then: Settings → PaoPao → "First run" → **Start NapCat** → scan the QR once → fill in the bot QQ number
 under **QQ channel** → send the bot a message from another account; a reply means it is wired up.
@@ -101,7 +107,7 @@ Settings are split into **Companion** (overview / chats / cadence / events / act
 | Node.js | ≥ 22 |
 | OneBot 11 impl | NapCat / Lagrange / LLOneBot / go-cqhttp (reverse or forward WebSocket) |
 | **NapCat privileges** | **Administrator required** (process injection); unelevated, auto-launch is skipped, no UAC prompt |
-| **QQ client** | **NapCat's packet table tops out at `9.9.36-53644`, tested at `9.9.33-52230`**; newer builds fail with `PacketBackend 不支持当前QQ版本架构` |
+| **QQ client** | **Must be a build in NapCat's table** (ceiling moves with NapCat: 4.18.41 → `9.9.36-53644`, 4.18.42 → `9.9.37-54276`); `9.9.33-52230` is tested; outside the table → `PacketBackend 不支持当前QQ版本架构` |
 | **VC++ runtime** | Missing it makes NapCat exit instantly (`0xC0000135`); `winget install Microsoft.VCRedist.2015+.x64` |
 | Optional deps | Voice transcription needs ffmpeg + whisper CLI; t2i text images need Noto CJK fonts on Linux |
 
@@ -416,7 +422,7 @@ Private (`dmPolicy`) and group (`groupPolicy`) chats each have three options:
 
 | Option | dmPolicy (private) | groupPolicy (group) |
 |---|---|---|
-| `open` | **Admins only** can DM (`adminUsers`/`ONEBOT_ALLOWED_USERS`; with `allowAllUsers: true` everyone can) | **All groups** can chat (messages gated by `requireMention`: @ or reply-to-bot required; group members get the `[受限用户:仅问答]` soft limit) |
+| `open` | **Admins only** can DM (`adminUsers`/`ONEBOT_ALLOWED_USERS`/`ownerQQ`; `allowAllUsers` **no longer applies to DMs** — a DM equals full control of this machine) | **All groups** can chat (the default is now `allowlist`; opt in explicitly to widen it; messages are gated by `requireMention`: @ or reply-to-bot required; group members get the `[受限用户:仅问答]` soft limit) |
 | `allowlist` | Only the **`allowFrom`** QQ numbers can DM (admin not required) | Only the **`groupAllowFrom`** groups can chat |
 | `disabled` | All DMs rejected | All group chats rejected |
 
@@ -506,6 +512,7 @@ Lessons ported from the source DEVLOG:
 | Symptom | Cause & fix |
 |---|---|
 | Group chat not responding | With `requireMention: true`, @ or reply-to-the-bot is required; @ detection is fail-closed; make sure botQQ was learned from meta events or configured explicitly |
+| DMs get no response at all | ① The sender isn't an admin: set `ownerQQ` (labelled "主人 QQ" under Settings → Other) or `adminUsers`; ② you're sending **from the bot's own account** — `ignoreSelf` defaults to true and drops it; test from another account |
 | Image download 403 | NapCat escapes `&` in URLs to `&amp;` (parsing unescapes automatically); if it still fails, check the media download line in the log |
 | File receive fails | NapCat on a different machine needs the "file-to-URL" switch on, otherwise `get_file` returns an unreachable container path; confirm dsh ↔ NapCat network connectivity |
 | Tofu CJK in text images | Linux without CJK fonts: `apt install fonts-noto-cjk`, and point `fontFiles` at an SC font file |
