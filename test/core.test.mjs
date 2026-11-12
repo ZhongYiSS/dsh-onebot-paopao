@@ -205,7 +205,10 @@ test('免打扰（含跨夜）', () => {
 test('parseHM 坏输入不炸', () => {
   assert.equal(parseHM('07:30'), 450)
   assert.equal(parseHM(''), 0)
-  assert.equal(parseHM('99:99'), 23 * 60 + 59)
+  // 现在先合成总分钟再夹：24:00（=1440）是合法的「到午夜」，坏输入也最多夹到这一天结束
+  assert.equal(parseHM('99:99'), 24 * 60)
+  assert.equal(parseHM('24:00'), 1440)
+  assert.equal(parseHM('23:30'), 23 * 60 + 30)
 })
 
 test('时段能认出深夜', () => {
