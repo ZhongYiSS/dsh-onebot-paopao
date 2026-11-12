@@ -1188,3 +1188,50 @@ test('读 profile 配置：bundle 里缩进两格的 - id: dsh-onebot 也认', a
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('平台提示词：数字跟着配置走，不写死', async () => {
+  const { buildPlatformPrompt } = await import('../lib/prompt.js')
+  const t = buildPlatformPrompt(false, {
+    ownerQQ: '10001',
+    memeDir: '',
+    maxImagesPerTurn: 5,
+    recentImageLookback: 7,
+    cfg: {
+      burstWindowMs: 8000, burstThreshold: 4, burstWaitMs: 6000,
+      proactiveDurationMs: 1_200_000, proactiveFollowUpMs: 45_000, proactiveMaxFollowUps: 3,
+      proactiveImageThreshold: 260, mentionHistoryCount: 12, historyFocusRatio: 0.7,
+    },
+  })
+  assert.match(t, /8 秒内超过 4 条/, '连发窗口读配置')
+  assert.match(t, /安静 6 秒/, '合并等待读配置')
+  assert.match(t, /默认 20 分钟/, '主动模式时长读配置')
+  assert.match(t, /对方 45 秒不回/, '追问间隔读配置')
+  assert.match(t, /最多连续 3 次/, '追问次数读配置')
+  assert.match(t, /正文超过 260 字/, '转卡片阈值读配置')
+  assert.match(t, /最近 12 条群消息/, '群聊上下文条数读配置')
+  assert.match(t, /大约 70%/, '追问占比读配置')
+  assert.match(t, /一轮最多 5 张/, '看图张数读配置')
+  assert.match(t, /往回找 7 条内/, '回看条数读配置')
+  assert.ok(!/45 秒不回/.test(other(t)), '默认值不该再出现第二份')
+})
+
+/** 把「主动模式」那条摘掉，剩下的是别处，用来确认没有第二份硬编码。 */
+function other(t) {
+  return t.split('\n').filter((l) => !l.startsWith('- 主动模式：')).join('\n')
+}
+
+test('平台提示词：表情包目录只举几个例子，不整份列出来', async () => {
+  const { buildPlatformPrompt } = await import('../lib/prompt.js')
+  const dir = mkdtempSync(join(tmpdir(), 'bubble-memes-'))
+  try {
+    for (let i = 0; i < 20; i += 1) writeFileSync(join(dir, `meme-${String(i).padStart(2, '0')}.png`), 'x')
+    const t = buildPlatformPrompt(false, { memeDir: dir, cfg: {} })
+    const line = t.split('\n').find((l) => l.startsWith('- 表情包：'))
+    assert.ok(line.includes('meme-00'), '前几个名字要露脸')
+    assert.ok(!line.includes('meme-19'), '第 13 个以后不再往里塞')
+    assert.match(line, /还有 8 个/, '告诉她还剩多少个')
+    assert.ok(line.includes(dir), '目录要写上，让她自己去列')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
