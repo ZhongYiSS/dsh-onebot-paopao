@@ -1220,17 +1220,17 @@ function other(t) {
   return t.split('\n').filter((l) => !l.startsWith('- 主动模式：')).join('\n')
 }
 
-test('平台提示词：表情包目录只举几个例子，不整份列出来', async () => {
+test('平台提示词：表情包只给目录，一个文件名都不写', async () => {
   const { buildPlatformPrompt } = await import('../lib/prompt.js')
   const dir = mkdtempSync(join(tmpdir(), 'bubble-memes-'))
   try {
     for (let i = 0; i < 20; i += 1) writeFileSync(join(dir, `meme-${String(i).padStart(2, '0')}.png`), 'x')
     const t = buildPlatformPrompt(false, { memeDir: dir, cfg: {} })
     const line = t.split('\n').find((l) => l.startsWith('- 表情包：'))
-    assert.ok(line.includes('meme-00'), '前几个名字要露脸')
-    assert.ok(!line.includes('meme-19'), '第 13 个以后不再往里塞')
-    assert.match(line, /还有 8 个/, '告诉她还剩多少个')
-    assert.ok(line.includes(dir), '目录要写上，让她自己去列')
+    assert.ok(line.includes(dir), '目录要写上')
+    assert.ok(!line.includes('meme-00'), '别人的表情包叫什么名字，插件不该替她假设')
+    assert.ok(!/还有 \d+ 个/.test(line), '也不该去数目录里有几个')
+    assert.ok(line.includes('列一下目录') || line.includes('列目录'), '要看什么自己去列')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
