@@ -1,8 +1,8 @@
 # dsh-onebot-paopao (PaoPao)
 
-> ⚠️ **Major bug — do not install.** The 0.5.1 defaults are broken: a fresh install has an empty event pool
-> (no labels, so the plugin never speaks up), some settings still display raw millisecond values, and the
-> dependency list is too heavy. Being fixed — please wait.
+> ⚠️ **Work in progress — please do not install.** This is 0.5.6. The UI and the platform prompt have been
+> changing daily and have not been through a full manual regression pass yet (panels, NapCat start/stop,
+> proactive speaking and Bilibili intake are still unverified end to end). Wait until this round of testing is done.
 
 > **English | [中文](README.md)**
 
