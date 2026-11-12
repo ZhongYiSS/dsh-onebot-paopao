@@ -116,7 +116,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 **看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-12（0.5.1：默认事件带词、秒/毫秒夹取、qrcode 依赖、主人 QQ 生效、私聊/群聊安全闸、群里跑受限预设、体检分必需/可选）——`npm test` **100 个用例全绿**、`node scripts/guard-publish.mjs` 通过（109 个文件、17 个工具）。
+最后验证：2026-11-12（0.5.1：默认事件带词、秒/毫秒夹取、qrcode 依赖、主人 QQ 生效、私聊/群聊安全闸、群里跑受限预设、体检分必需/可选）——`npm test` **101 个用例全绿**、`node scripts/guard-publish.mjs` 通过（110 个文件、17 个工具）。
 
 ## 安装
 
@@ -186,7 +186,7 @@ DSH_ROOT=<fnOS 应用数据目录>/node_modules ./scripts/build.sh
       config:
         mode: reverse        # reverse = NapCat 拨入；forward = 插件拨出
         port: 8643
-        # accessToken: '与NapCat一致的token'   # 必配：reverse 模式留空将拒绝启动（M0 安全加固）
+        # accessToken: '与NapCat一致的token'   # 可留空：反连模式会自动生成一个并写进 $DSH_HOME/onebot/access-token.json
         # botQQ: ''          # 留空自动从 meta 事件学习
         adminUsers: ['你的QQ号']   # 必配：至少一个管理员，否则私聊/斜杠命令不可用
 ```
@@ -257,7 +257,7 @@ B站 那些能力（刷视频、看视频、回私信）在设置页「B站与�
 | `host` / `port` | `127.0.0.1` / `8643` | reverse 监听；跨机部署（NapCat 从其他机器拨入）需显式改为 `0.0.0.0` |
 | `url` | `ws://127.0.0.1:3001` | forward 目标 |
 | `reconnectMaxAttempts` | `100` | 自动重连放弃上限：连续失败达到该次数后停止重连，日志输出上限值与恢复指引；`0` = 无限重连（退避封顶 60s） |
-| `accessToken` | 空 | OneBot token；**reverse 模式必填**，留空插件拒绝启动（fail-closed）；forward 可为空 |
+| `accessToken` | 空 | OneBot token；反连模式下**留空会自动生成一个并落盘**（`$DSH_HOME/onebot/access-token.json`，设置页「复制 token」给明文），下次重启沿用；填了就按填的来；forward 可为空 |
 | `botQQ` | 空 | 机器人 QQ（空=自动学习） |
 | `ignoreSelf` | `true` | 忽略机器人自己发出的消息（防自循环） |
 | `requireMention` | `true` | 群聊需 @ 或回复机器人的消息才响应（回复他人消息不触发；被回复消息无法判定时回落视为提及，fail-open） |
@@ -308,7 +308,7 @@ B站 那些能力（刷视频、看视频、回私信）在设置页「B站与�
 | `workspacePath` | 空 | 会话挂载的工作区（留空=宿主进程 cwd；未配置时插件启动会 warn 一次建议显式配置——宿主未提供可编程查询的默认工作区）。`/workspace` 的 per-chat 覆盖已持久化进映射文件，重启不丢 |
 | `chatIdleEvictDays` | `7` | 会话空闲淘汰天数：chat 超过该天数无任何活动时，在下一条入站消息处理前清理其内存态 agent（会话先 flush 落盘、映射保留，同一 chat 之后再发消息可 resume 恢复原会话）；`0` = 禁用 |
 
-> ⚠️ **BREAKING（M0 安全加固）**：reverse 模式下 `accessToken` 留空会拒绝启动（fail-closed）；`host` 默认从 `0.0.0.0` 改为 `127.0.0.1`（仅本机监听），跨机部署需显式配置 `host: 0.0.0.0`。
+> ⚠️ **BREAKING（M0 安全加固）**：reverse 模式下连接必须带非空 token（fail-closed），但**不再要求人手填**——配置里留空时插件自动生成一个并落盘，设置页能复制；`host` 默认从 `0.0.0.0` 改为 `127.0.0.1`（仅本机监听），跨机部署需显式配置 `host: 0.0.0.0`。
 
 环境变量：`ONEBOT_ALLOWED_USERS`（逗号分隔管理员）、`ONEBOT_ALLOW_ALL_USERS=true`（开发用）。
 

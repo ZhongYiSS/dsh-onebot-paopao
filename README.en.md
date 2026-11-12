@@ -188,7 +188,7 @@ Mount it in `~/.dsh/config.yaml` (create it if missing):
       config:
         mode: reverse        # reverse = NapCat dials in; forward = plugin dials out
         port: 8643
-        # accessToken: 'token-matching-NapCat'  # required: reverse mode refuses to start with an empty token (M0 hardening)
+        # accessToken: 'token-matching-NapCat'  # optional: reverse mode generates one and stores it in $DSH_HOME/onebot/access-token.json when empty
         # botQQ: ''          # leave empty to learn automatically from meta events
         adminUsers: ['<your-QQ-number>']   # required: at least one admin, otherwise private chats & slash commands are unavailable
 ```
@@ -230,7 +230,7 @@ default). Common options:
 | `host` / `port` | `127.0.0.1` / `8643` | reverse listen address; for cross-machine deployment (NapCat dialing in from another machine), explicitly set this to `0.0.0.0` |
 | `url` | `ws://127.0.0.1:3001` | forward target |
 | `reconnectMaxAttempts` | `100` | reconnect give-up limit: auto-reconnect stops after this many consecutive failures (the log includes the limit and recovery guidance); `0` = unlimited retries (backoff capped at 60s) |
-| `accessToken` | empty | OneBot token; **required in reverse mode** — the plugin refuses to start when left empty (fail-closed); may stay empty in forward mode |
+| `accessToken` | empty | OneBot token; in reverse mode an **empty value is generated and stored automatically** (`$DSH_HOME/onebot/access-token.json`, copy it from the panel), reused on restart; a configured value always wins; may stay empty in forward mode |
 | `botQQ` | empty | bot QQ (empty = auto-learned) |
 | `ignoreSelf` | `true` | Ignore messages sent by the bot itself (prevents self-loops) |
 | `requireMention` | `true` | groups only respond when @-mentioned or replying to the bot's own messages (replies to other members don't trigger; when the replied-to message can't be determined, it falls back to counting as mentioned, fail-open) |
@@ -281,7 +281,7 @@ default). Common options:
 | `workspacePath` | empty | workspace for sessions (empty = host process cwd; when unconfigured the plugin warns once at startup recommending an explicit value — the host exposes no programmable default-workspace query). The per-chat `/workspace` override is persisted to the mapping file and survives restarts |
 | `chatIdleEvictDays` | `7` | idle-session eviction (days): when a chat has had no activity for longer than this, its in-memory agent is cleaned up before the next inbound message is processed (the session is flushed to disk first and the mapping is kept, so a later message from the same chat resumes the original session); `0` = disabled |
 
-> ⚠️ **BREAKING (M0 security hardening)**: in reverse mode an empty `accessToken` refuses to start (fail-closed); the `host` default changed from `0.0.0.0` to `127.0.0.1` (loopback only) — cross-machine deployments must explicitly configure `host: 0.0.0.0`.
+> ⚠️ **BREAKING (M0 security hardening)**: in reverse mode the connection still requires a non-empty token (fail-closed), but **you no longer have to type one** — an empty config is auto-generated and stored, and the panel shows it; the `host` default changed from `0.0.0.0` to `127.0.0.1` (loopback only) — cross-machine deployments must explicitly configure `host: 0.0.0.0`.
 
 Env vars: `ONEBOT_ALLOWED_USERS` (comma-separated admins), `ONEBOT_ALLOW_ALL_USERS=true` (development).
 

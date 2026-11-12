@@ -1057,3 +1057,39 @@ test('NapCat 启动脚本按开关决定显不显示控制台', async () => {
   assert.ok(shown.includes('sh.Run cmd, 1, False'), '开了就显示')
   assert.ok(!shown.includes('logPath'), '没给日志路径就不生成那段')
 })
+
+// 11-12 accessToken 死锁：留空就自动生成并落盘，别再要求人手填
+test('accessToken 留空时自动生成并落盘，下次沿用同一个', async () => {
+  const { resolveAccessToken, readTokenFile } = await import('../lib/token.js')
+  const dir = mkdtempSync(join(tmpdir(), 'paopao-token-'))
+  try {
+    const file = join(dir, 'access-token.json')
+    const logs = []
+    const log = (level, msg) => logs.push(level + ':' + msg)
+
+    // 1) 配置里写了就用配置的，不生成文件
+    assert.deepEqual(resolveAccessToken({ raw: '  abc123  ', file, log }), { token: 'abc123', source: 'config' })
+    assert.equal(readTokenFile(file), '', '配置优先时不该落盘')
+
+    // 2) 留空 → 生成、落盘
+    const first = resolveAccessToken({ raw: '', file, log })
+    assert.equal(first.source, 'generated')
+    assert.match(first.token, /^[0-9a-f]{48}$/, '24 字节十六进制')
+    assert.equal(readTokenFile(file), first.token, '落盘的与返回的一致')
+
+    // 3) 再起一次 → 沿用同一个，不再换
+    const second = resolveAccessToken({ raw: '', file, log })
+    assert.deepEqual(second, { token: first.token, source: 'file' })
+
+    // 4) 写不进去（父路径是个文件）→ 仍给非空 token，并记 error
+    const broken = join(dir, 'not-a-dir')
+    const fs = await import('node:fs')
+    fs.writeFileSync(broken, 'x')
+    const third = resolveAccessToken({ raw: '', file: join(broken, 'a.json'), log })
+    assert.equal(third.source, 'memory')
+    assert.match(third.token, /^[0-9a-f]{48}$/, '兜底也给真 token，不会开门')
+    assert.ok(logs.some((l) => l.startsWith('error:')), '写不进要报 error')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
