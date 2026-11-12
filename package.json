@@ -1,6 +1,6 @@
 {
   "name": "dsh-onebot-paopao",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "泡泡（PaoPao）：给 DeepSeek Harness 的 QQ 通道 + 陪伴层 —— 按权重自己开口、自己找 B站 视频、扫码登录与私信监看。QQ channel plus a companionship layer for dsh.",
   "keywords": [
     "dsh",

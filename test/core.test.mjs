@@ -1245,3 +1245,21 @@ test('平台提示词：表情包只给目录，一个文件名都不写', async
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// 面板字段 ↔ setConfig 白名单：两边走散过一次（面板能改、服务端不认、重启就回默认）。
+// 这里静态比对源码，schema 里有的键只要上了面板，就必须在白名单里。
+test('设置页每个视觉/互动字段，setConfig 都收得进', async () => {
+  const { readFileSync } = await import('node:fs')
+  const root = new URL('../', import.meta.url)
+  const idx = readFileSync(new URL('lib/index.js', root), 'utf8')
+  const ext = readFileSync(new URL('lib/companion/ext-settings.mjs', root), 'utf8')
+  const schemaKeys = new Set([...idx.matchAll(/^ {4}([A-Za-z][A-Za-z0-9]*): z\./gm)].map((m) => m[1]))
+  const fieldKeys = [...ext.matchAll(/\{ key: '([A-Za-z0-9]+)'/g)]
+    .map((m) => m[1])
+    .filter((k) => schemaKeys.has(k))
+  const start = idx.indexOf('setConfig: (patch) =>')
+  const block = idx.slice(start, start + 6000)
+  const whitelist = new Set([...block.matchAll(/'([A-Za-z][A-Za-z0-9]+)'/g)].map((m) => m[1]))
+  const missing = fieldKeys.filter((k) => !whitelist.has(k))
+  assert.deepEqual(missing, [], '这些键面板能改、setConfig 却不收：' + missing.join(', '))
+})
