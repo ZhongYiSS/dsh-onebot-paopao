@@ -25,6 +25,12 @@
 
 ## 三分钟装好
 
+**装之前先确认这三样**（缺一样都连不上 QQ）：
+
+1. **NapCat 要以管理员身份运行** —— 它要把自己注入 QQ 进程，不提权起不来（自动拉起时会卡 UAC 弹窗，插件会跳过并提示）。
+2. **QQ 客户端版本要钉住** —— 本插件按 NapCat 的适配表工作，目前只支持到 `9.9.36-53644`，实测稳定的是 `9.9.33-52230`。QQ 自动更新到更新的版本会报 `PacketBackend 不支持当前QQ版本`，去 `C:\Program Files\Tencent\QQNT\versions` 换回旧版并把自动更新关掉。
+3. **VC++ 运行库** —— 缺了 NapCat 会 0xC0000135 秒退；装一下 `winget install Microsoft.VCRedist.2015+.x64`。
+
 ```sh
 # 1. 装插件（二选一）
 dsh plugin --profile desktop add github:ZhongYiSS/dsh-onebot-paopao
@@ -89,6 +95,9 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 | dsh | ≥ 0.1.5-rc.1（`engines.dsh`：0.1.5/0.1.6/0.1.7 全线 + 0.2.0 线 ≥0.2.0-rc.1；@deepseek-ai/* peer 依赖同范围，JsonValue 由 dsh-util-values 提供） |
 | Node.js | ≥ 22 |
 | OneBot 11 实现 | NapCat / Lagrange / LLOneBot / go-cqhttp（reverse 或 forward WebSocket） |
+| **NapCat 权限** | **必须管理员运行**（要注入 QQ 进程）；非管理员时插件只跳过自动拉起，不会去弹 UAC |
+| **QQ 客户端** | **按 NapCat 适配表，最高 `9.9.36-53644`，实测 `9.9.33-52230` 稳**；更新的版本报 `PacketBackend 不支持当前QQ版本架构` |
+| **VC++ 运行库** | 缺了 NapCat 秒退 `0xC0000135`；`winget install Microsoft.VCRedist.2015+.x64` |
 | 可选依赖 | 语音转写需 ffmpeg + whisper CLI；无字幕视频听声音需 Python + `faster-whisper`（转写脚本随包，不必自己找）；B站 视频直连下载，**不需要 yt-dlp**（yt-dlp 只给站外链接用）；t2i 文字图在 Linux 需 Noto CJK 字体 |
 
 ### 装完先做一次环境检查
@@ -97,9 +106,11 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 ```
 
-一条命令列出：Node 版本、ws/canvas/fontkit、ffmpeg/ffprobe、yt-dlp、Python 与 faster-whisper、whisper CLI、B站 登录、视觉模型、NapCat 目录与进程，每项后面直接跟「缺了怎么补」（含 `winget install …` 这类一行命令）。只查不装、不改系统，退出码 0 表示没有硬伤。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
+一条命令列出：Node 版本、ws/canvas/fontkit、ffmpeg/ffprobe、yt-dlp、Python 与 faster-whisper、whisper CLI、B站 登录、视觉模型、NapCat 目录与进程，每项后面直接跟「缺了怎么补」（含 `winget install …` 这类一行命令）。只查不装、不改系统。
 
-最后验证：2026-11-12（0.5.1：默认事件带词、秒/毫秒夹取、qrcode 依赖、主人 QQ 生效、私聊/群聊安全闸）——`npm test` **99 个用例全绿**、`node scripts/guard-publish.mjs` 通过（108 个文件、17 个工具）。
+**看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
+
+最后验证：2026-11-12（0.5.1：默认事件带词、秒/毫秒夹取、qrcode 依赖、主人 QQ 生效、私聊/群聊安全闸、群里跑受限预设、体检分必需/可选）——`npm test` **100 个用例全绿**、`node scripts/guard-publish.mjs` 通过（109 个文件、17 个工具）。
 
 ## 安装
 

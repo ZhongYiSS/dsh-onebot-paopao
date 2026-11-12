@@ -30,6 +30,12 @@ User(QQ) ←→ NapCat ←→ dsh-onebot plugin ←→ dsh Agent (one per chat)
 
 ## Three-minute install
 
+**Check these three first** (missing any one and QQ will not connect):
+
+1. **NapCat must run as administrator** — it injects itself into the QQ process; unelevated it cannot start (auto-launch will skip with a note instead of popping UAC).
+2. **Pin the QQ client version** — the plugin follows NapCat's packet table, which tops out at `9.9.36-53644`; `9.9.33-52230` is the tested one. A newer QQ reports `PacketBackend 不支持当前QQ版本架构`; switch back under `C:\Program Files\Tencent\QQNT\versions` and turn auto-update off.
+3. **VC++ runtime** — without it NapCat dies instantly with `0xC0000135`; run `winget install Microsoft.VCRedist.2015+.x64`.
+
 ```sh
 # 1. install (either line)
 dsh plugin --profile desktop add github:ZhongYiSS/dsh-onebot-paopao
@@ -94,9 +100,12 @@ Settings are split into **Companion** (overview / chats / cadence / events / act
 | dsh | ≥ 0.1.5-rc.1 (`engines.dsh`: full 0.1.5/0.1.6/0.1.7 lines + 0.2.0 line ≥0.2.0-rc.1; @deepseek-ai/* peer deps same range, JsonValue provided by dsh-util-values) |
 | Node.js | ≥ 22 |
 | OneBot 11 impl | NapCat / Lagrange / LLOneBot / go-cqhttp (reverse or forward WebSocket) |
+| **NapCat privileges** | **Administrator required** (process injection); unelevated, auto-launch is skipped, no UAC prompt |
+| **QQ client** | **NapCat's packet table tops out at `9.9.36-53644`, tested at `9.9.33-52230`**; newer builds fail with `PacketBackend 不支持当前QQ版本架构` |
+| **VC++ runtime** | Missing it makes NapCat exit instantly (`0xC0000135`); `winget install Microsoft.VCRedist.2015+.x64` |
 | Optional deps | Voice transcription needs ffmpeg + whisper CLI; t2i text images need Noto CJK fonts on Linux |
 
-Last verified: 2026-11-10 (0.2.0: companionship layer + Bilibili video picking + video watching + session pinning + environment check) — `npm test` **86/86 green**, `node scripts/guard-publish.mjs` clean (106 files, 17 tools).
+Last verified: 2026-11-12 (0.5.1: editable cue, chat-mandatory events, restricted preset for groups, required/optional split in the environment check) — `npm test` **100/100 green**, `node scripts/guard-publish.mjs` clean (109 files, 17 tools).
 
 ## Installation
 
