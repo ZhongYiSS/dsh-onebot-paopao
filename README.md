@@ -106,6 +106,17 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 | **VC++ 运行库** | 缺了 NapCat 秒退 `0xC0000135`；`winget install Microsoft.VCRedist.2015+.x64` |
 | 可选依赖 | 语音转写需 ffmpeg + whisper CLI；无字幕视频听声音需 Python + `faster-whisper`（转写脚本随包，不必自己找）；B站 视频直连下载，**不需要 yt-dlp**（yt-dlp 只给站外链接用）；t2i 文字图在 Linux 需 Noto CJK 字体 |
 
+### B站 功能要什么（分三档，别混）
+
+| 想要 | 必须有 | 没有会怎样 |
+|---|---|---|
+| 扫码登录 B站 | Node ≥ 22、npm 依赖 `qrcode`、能访问 `passport.bilibili.com` | 缺 `qrcode` → 插件整个加载失败（面板空白/404，日志 `Cannot find module 'qrcode'`）；网络不通 → 点登录报「B站 没给二维码」 |
+| **拿到视频链接** | 什么都不用装（走 `api.bilibili.com` 的 view + playurl + 分片下载） | 只有网络/风控会挡；`yt-dlp` 与此无关 |
+| **拿到视频内容**（字幕/画面） | 字幕：同样不用装<br>画面：**ffmpeg + ffprobe**（`winget install Gyan.FFmpeg`）<br>宫格拼图：`@napi-rs/canvas` + `fontkit`（随包）<br>让模型真看懂：设置里填 `videoVisionModel` / `videoVisionBaseUrl` / `videoVisionApiKeyEnv` | 没 ffmpeg → 抽不出帧；没配视觉模型 → 日志「仔细看没成：还没配看视频的视觉模型」；没字幕又没 Python+faster-whisper → 只能看画面 |
+| 站外链接（YouTube 等） | `yt-dlp` | 报「下载站外视频需要 yt-dlp（B站 视频不用）」 |
+
+`link:` 方式装的，第一次要在插件目录跑一次 `npm install`（`qrcode`/`canvas` 这些是普通依赖，不跑就没有）；用 npm 包或 tgz 装的不必单独跑。
+
 ### 装完先做一次环境检查
 
 ```sh
