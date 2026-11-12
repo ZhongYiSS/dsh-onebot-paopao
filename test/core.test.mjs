@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { clamp, riseByTime, canSpeak, triggerChance, settle, refundPct, spend, addBonus } from '../lib/companion/weight.mjs'
-import { drawEvent, normalizePercent, EVENT_POOL, mergePool } from '../lib/companion/events.mjs'
+import { drawEvent, normalizePercent, EVENT_POOL, mergePool, seedPool } from '../lib/companion/events.mjs'
 import { pruneWindow, canTrigger, countInWindow } from '../lib/companion/limit.mjs'
 import { inQuiet, periodOf, parseHM, formatHM } from '../lib/companion/period.mjs'
 import { readState, readHistory, dayKeyOf } from '../lib/companion/state.mjs'
@@ -17,6 +17,7 @@ import { styleReason } from '../lib/bili-act.js'
 import { matchCloseChat, matchOpenChat } from '../lib/inbound.js'
 import { validatePinSessionId, shortPinId } from '../lib/pin-id.js'
 import { defaultConfig, normalizeProfile } from '../lib/companion/app.mjs'
+import { writeQq } from '../lib/companion/ext-settings.mjs'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
   assert.equal(clamp(150), 100)
@@ -84,11 +85,35 @@ test('事件池百分比合计 100（四舍五入后允许 ±1）', () => {
   assert.ok(Math.abs(sum - 100) <= 1.5, `合计 ${sum}`)
 })
 
-test('默认事件池的词全空，空词不参与抽签', () => {
-  assert.ok(EVENT_POOL.every((e) => e.label === ''))
-  assert.equal(drawEvent(EVENT_POOL, () => 0.5), null)
+test('默认池的词是空的，第一次初始化才填进去；空词不参与抽签', () => {
+  // 哥哥 m18764：默认全空，下载时（新建配置）才写进预设词，之后清空了也不补回来
+  assert.ok(EVENT_POOL.every((e) => String(e.label || '').trim() === ''), '默认定义里不能带词')
+  const seeded = seedPool()
+  assert.ok(seeded.filter((e) => e.enabled !== false).every((e) => e.label !== ''), '种子池要带词')
+  assert.ok(seeded.filter((e) => e.enabled !== false).length >= 6, '种子池该有 6 个以上能抽的')
+  assert.ok(drawEvent(seeded, () => 0.5), '种子池要能抽出来')
+  assert.equal(drawEvent([{ id: 'x', label: '', weight: 100 }]), null)
   const withWord = mergePool([{ id: 'chat', label: '说句话', weight: 30 }])
   assert.equal(drawEvent(withWord, () => 0.01).id, 'chat')
+})
+
+test('老存盘里清空的词保持空，不被默认词偷偷补回去', () => {
+  const merged = mergePool([{ id: 'chat', label: '', weight: 30 }])
+  assert.equal(merged.find((e) => e.id === 'chat').label, '')
+})
+
+test('秒填进来的数按秒存成毫秒，不被 max 夹坏', () => {
+  const seen = {}
+  const api = { setConfig: (p) => Object.assign(seen, p), getConfig: () => ({}) }
+  const r = writeQq(api, { debounceMs: 2_000, groupKeywordCooldownMs: 120_000, proactiveFollowUpMs: 45_000, openChatDefaultMs: 600_000 })
+  assert.equal(r.ok, true)
+  assert.equal(seen.debounceMs, 2_000)
+  assert.equal(seen.groupKeywordCooldownMs, 120_000)
+  assert.equal(seen.proactiveFollowUpMs, 45_000)
+  assert.equal(seen.openChatDefaultMs, 600_000)
+  // 超出上限时夹到「秒上限 × 1000」，不是夹到秒数本身
+  writeQq(api, { debounceMs: 999_000 })
+  assert.equal(seen.debounceMs, 60_000)
 })
 
 test('抽事件只落在启用项上，并按份数分布', () => {
@@ -996,4 +1021,39 @@ test('聊天强制事件：每条独立掷，中了多条只算概率大的那�
   assert.equal(rollLine({ label: '这轮必须发条语音' }), '[本轮] 这轮必须发条语音', '中了就塞这一行')
   const off = normalizeRolls([{ id: 'meme', label: 'x', chance: 50, enabled: false }], {}, { ensureMeme: false })
   assert.equal(pickRoll(off, () => 0), null, '全关着就永远不塞（不会偷偷把表情包加回来）')
+})
+
+// 11-11 安装记录：设置里只填「主人 QQ」时，私聊必须能进来（ownerQQ 要并进管理员）
+test('主人 QQ 算管理员；没填主人也没别的管理员时，私聊一个都不放', async () => {
+  const { resolvePolicy } = await import('../lib/index.js')
+  const base = { dmPolicy: 'open', groupPolicy: 'open', allowFrom: [], groupAllowFrom: [], requireMention: true, allowAllUsers: false }
+  const p = resolvePolicy({ ...base, ownerQQ: ' 123 ', adminUsers: ['999'] })
+  assert.ok(p.adminUsers.includes('123'), '主人 QQ 去空格后进管理员')
+  assert.ok(p.adminUsers.includes('999'), '原来的管理员还在')
+  const q = resolvePolicy({ ...base, ownerQQ: '', adminUsers: [] })
+  assert.deepEqual(q.adminUsers, [], '都没填就是空表（界面靠它挂红条）')
+})
+
+// 11-12 安全闸：私聊只认白名单，allowAllUsers 不再放行私聊；群聊按白名单
+test('私聊永远只认白名单；群聊默认按白名单', async () => {
+  const { dmAllowed, groupAllowed } = await import('../lib/chat.js')
+  const policy = {
+    dmPolicy: 'open', allowAllUsers: true, adminUsers: ['123'], allowFrom: [],
+    groupPolicy: 'allowlist', groupAllowFrom: ['456'],
+  }
+  assert.equal(dmAllowed('999', policy), false, '陌生人私聊一律不进（哪怕 allowAllUsers 开着）')
+  assert.equal(dmAllowed('123', policy), true, '白名单里的人能进')
+  assert.equal(groupAllowed('999', policy), false, '不在白名单的群不理')
+  assert.equal(groupAllowed('456', policy), true, '白名单里的群能进')
+})
+
+// 11-12 NapCat 窗口开关：默认隐藏（0），开了才显示（1）
+test('NapCat 启动脚本按开关决定显不显示控制台', async () => {
+  const { buildVbsScript } = await import('../lib/napcat.js')
+  const hidden = buildVbsScript('D:\\QQ\\NapCat.Shell', { uin: '123', quickLogin: true, logPath: 'C:\\x.log' })
+  assert.ok(hidden.includes('sh.Run cmd, 0, False'), '默认藏起来')
+  assert.ok(hidden.includes('-q 123'), '带快速登录号')
+  const shown = buildVbsScript('D:\\QQ\\NapCat.Shell', { uin: '123', showWindow: true })
+  assert.ok(shown.includes('sh.Run cmd, 1, False'), '开了就显示')
+  assert.ok(!shown.includes('logPath'), '没给日志路径就不生成那段')
 })

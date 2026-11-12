@@ -12,6 +12,7 @@
  * @module dsh-onebot/scripts/guard-publish
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -119,6 +120,52 @@ if (!Array.isArray(declared) || declared.length === 0) {
   }
   for (const name of registered) {
     if (!declared.includes(name)) problems.push(`package.json：lib/tools.js 注册了 ${name}，但没写进 contributes.tools`);
+  }
+}
+
+// 4. 代码里 import 的裸模块，必须在依赖表里（11-11 安装记录：qrcode 没写进 dependencies，
+//    别人装完入口 import 直接抛错，整个插件不挂载，设置页显示「未运行」）
+const BUILTINS = new Set([
+  ...builtinModules,
+  ...builtinModules.map((m) => 'node:' + m),
+]);
+const DECLARED_DEPS = new Set([
+  ...Object.keys(pkg.dependencies ?? {}),
+  ...Object.keys(pkg.peerDependencies ?? {}),
+  ...Object.keys(pkg.optionalDependencies ?? {}),
+]);
+/** 一行里可能出现的取模块写法：from 'x' / import('x') / require('x') / import 'x' */
+const IMPORT_RES = [
+  /\bfrom\s*['"]([^'"]+)['"]/,
+  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/,
+  /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/,
+  /^\s*import\s*['"]([^'"]+)['"]/,
+];
+/** 客户端 bundle 从宿主运行时拿的模块（平台冻结表，不在 npm 依赖里）。 */
+const BARE_ALLOW = new Set(['react', 'react-dom']);
+/** 像不像一个模块名：`qrcode`、`ws`、`@scope/pkg`；`" + chatId + "` 这种不算。 */
+const MODULE_SPEC_RE = /^(?:@[\w.-]+\/)?[\w.-]+(?:\/[\w.-]+)*$/;
+const isShippedCode = (full) => /\.(?:m?js)$/.test(full) && shipped.includes(full);
+for (const full of shipped.filter(isShippedCode)) {
+  let text;
+  try {
+    text = readFileSync(full, 'utf8');
+  } catch {
+    continue;
+  }
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (/^\s*(?:\/\/|\*|\/\*)/.test(line)) continue;   // 注释里提到的不算
+    const spec = IMPORT_RES.map((re) => re.exec(line)?.[1]).find(Boolean);
+    if (!spec) continue;
+    if (spec.startsWith('.') || spec.startsWith('/') || BUILTINS.has(spec)) continue;
+    if (!MODULE_SPEC_RE.test(spec)) continue;          // 字符串拼接，不是模块名
+    const name = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
+    if (BARE_ALLOW.has(name)) continue;
+    if (!DECLARED_DEPS.has(name)) {
+      problems.push(`${relative(ROOT, full)}:${i + 1}：import 了 ${name}，但 package.json 的依赖里没有它`);
+    }
   }
 }
 
