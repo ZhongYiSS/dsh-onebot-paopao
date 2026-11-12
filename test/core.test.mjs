@@ -1220,6 +1220,16 @@ function other(t) {
   return t.split('\n').filter((l) => !l.startsWith('- 主动模式：')).join('\n')
 }
 
+test('识图请求头：能带自定义头，但不许覆盖 content-type / authorization', async () => {
+  const { parseHeaderJson } = await import('../lib/vision.js')
+  assert.deepStrictEqual(parseHeaderJson(''), {})
+  assert.deepStrictEqual(parseHeaderJson('不是 json'), {})
+  assert.deepStrictEqual(parseHeaderJson('[1,2]'), {})
+  assert.deepStrictEqual(parseHeaderJson('{"x-opencode-session":"paopao"}'), { 'x-opencode-session': 'paopao' })
+  const guarded = parseHeaderJson('{"Authorization":"Bearer x","content-type":"text/plain","x-n":3,"x-b":true}')
+  assert.deepStrictEqual(guarded, { 'x-n': '3' })
+})
+
 test('平台提示词：表情包只给目录，一个文件名都不写', async () => {
   const { buildPlatformPrompt } = await import('../lib/prompt.js')
   const dir = mkdtempSync(join(tmpdir(), 'bubble-memes-'))
