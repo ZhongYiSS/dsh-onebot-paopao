@@ -1,5 +1,11 @@
 # 更新日志
 
+## 0.5.11 — 2026-11-13
+
+- 看视频：`lib/video-look.js` 的 `ask()` 里用了不在作用域的 `config`（加请求头那版带进来的），每格都报 `config is not defined`、宫格全空 —— 改成调用方把 `headers` 放进 options 传进来。
+- 看视频：一格都没看成的时候不再写缓存（以前会把一堆空结论存进 `video-cache.json`，之后一直命中空的）。
+- 顺手清掉那条 bvid 的两条坏缓存（旧键的 `deep|g10` 和带模型的 `normal|g2|m…`）。
+
 ## 0.5.10 — 2026-11-13
 
 - 修 `OneBotConnection.address()`：反连（noServer）模式下它调的是 `WebSocketServer.address()`，直接抛「The server is operating in \"noServer\" mode」→ `/api/bubble/setup` 整个 500、总览三盏灯和「第一次用」那张卡全空。改成先认 `reverseHttp`，并且 try/catch 兜住。
