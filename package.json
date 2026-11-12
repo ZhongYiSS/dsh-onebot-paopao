@@ -1,159 +1,159 @@
 {
-  "name": "dsh-onebot-paopao",
-  "version": "0.5.4",
-  "description": "泡泡（PaoPao）：给 DeepSeek Harness 的 QQ 通道 + 陪伴层 —— 按权重自己开口、自己找 B站 视频、扫码登录与私信监看。QQ channel plus a companionship layer for dsh.",
-  "keywords": [
-    "dsh",
-    "onebot",
-    "onebot11",
-    "qq",
-    "qq-bot",
-    "qqbot",
-    "napcat",
-    "lagrange",
-    "llonebot",
-    "go-cqhttp",
-    "deepseek",
-    "deepseek-harness",
-    "harness",
-    "bridge",
-    "chatbot"
-  ],
-  "private": false,
-  "type": "module",
-  "main": "lib/index.js",
-  "types": "lib/types/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./lib/types/index.d.ts",
-      "default": "./lib/index.js"
+    "name": "dsh-onebot-paopao",
+    "version": "0.5.5",
+    "description": "泡泡（PaoPao）：给 DeepSeek Harness 的 QQ 通道 + 陪伴层 —— 按权重自己开口、自己找 B站 视频、扫码登录与私信监看。QQ channel plus a companionship layer for dsh.",
+    "keywords": [
+        "dsh",
+        "onebot",
+        "onebot11",
+        "qq",
+        "qq-bot",
+        "qqbot",
+        "napcat",
+        "lagrange",
+        "llonebot",
+        "go-cqhttp",
+        "deepseek",
+        "deepseek-harness",
+        "harness",
+        "bridge",
+        "chatbot"
+    ],
+    "private": false,
+    "type": "module",
+    "main": "lib/index.js",
+    "types": "lib/types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib/types/index.d.ts",
+            "default": "./lib/index.js"
+        },
+        "./client": "./lib/client.js",
+        "./settings-remote": "./lib/settings-remote.js",
+        "./package.json": "./package.json"
     },
-    "./client": "./lib/client.js",
-    "./settings-remote": "./lib/settings-remote.js",
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "lib",
-    "!lib/*.bak-*",
-    "cordis.patch.yml",
-    "bin",
-    "assets",
-    "screenshots.json",
-    "THIRD-PARTY-NOTICES.md",
-    "CHANGELOG.md"
-  ],
-  "license": "MIT",
-  "author": "PaoPao contributors",
-  "forkOf": "https://github.com/mario841859784/dsh-onebot",
-  "engines": {
-    "dsh": ">=0.1.5-rc.1 <0.1.6-0 || >=0.1.6-alpha.1 <0.1.7-0 || >=0.1.7-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0 || >=0.2.1-0 <0.3.0-0",
-    "node": ">=22"
-  },
-  "pnpm": {
-    "autoInstallPeers": false
-  },
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
+    "files": [
+        "lib",
+        "!lib/*.bak-*",
+        "cordis.patch.yml",
+        "bin",
+        "assets",
+        "screenshots.json",
+        "THIRD-PARTY-NOTICES.md",
+        "CHANGELOG.md"
+    ],
+    "license": "MIT",
+    "author": "PaoPao contributors",
+    "forkOf": "https://github.com/mario841859784/dsh-onebot",
+    "engines": {
+        "dsh": ">=0.1.5-rc.1 <0.1.6-0 || >=0.1.6-alpha.1 <0.1.7-0 || >=0.1.7-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0 || >=0.2.1-0 <0.3.0-0",
+        "node": ">=22"
     },
-    "client": {
-      "platform": "web"
+    "pnpm": {
+        "autoInstallPeers": false
+    },
+    "dsh": {
+        "bundle": {
+            "patch": "./cordis.patch.yml"
+        },
+        "client": {
+            "platform": "web"
+        }
+    },
+    "dshx": {
+        "contributes": {
+            "tools": [
+                "qq_send_image",
+                "qq_proactive_start",
+                "qq_proactive_stop",
+                "qq_send_voice",
+                "qq_send_video",
+                "qq_send_file",
+                "qq_send_forward",
+                "qq_napcat_api",
+                "qq_send_card",
+                "qq_group_history",
+                "qq_video_look",
+                "bili_like",
+                "bili_coin",
+                "bili_fav",
+                "bili_comment",
+                "bili_send_message",
+                "bili_pick_video"
+            ],
+            "skills": []
+        }
+    },
+    "peerDependencies": {
+        "@deepseek-ai/cordis": "*",
+        "@deepseek-ai/dsh-agent": "*",
+        "@deepseek-ai/dsh-llm": "*",
+        "@deepseek-ai/dsh-session": "*",
+        "@deepseek-ai/dsh-system-prompt": "*",
+        "@deepseek-ai/dsh-tools": "*",
+        "@deepseek-ai/dsh-typert-protocol": "*",
+        "@deepseek-ai/dsh-util-values": "*",
+        "@deepseek-ai/schemastery": "*"
+    },
+    "peerDependenciesMeta": {
+        "@deepseek-ai/cordis": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-agent": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-llm": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-session": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-system-prompt": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-tools": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-typert-protocol": {
+            "optional": true
+        },
+        "@deepseek-ai/dsh-util-values": {
+            "optional": true
+        },
+        "@deepseek-ai/schemastery": {
+            "optional": true
+        }
+    },
+    "dependencies": {
+        "@napi-rs/canvas": "1.0.13",
+        "fontkit": "2.0.4",
+        "qrcode": "^1.5.4",
+        "ws": "8.22.0"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.0",
+        "@types/ws": "^8.5.12",
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0"
+    },
+    "scripts": {
+        "build": "./scripts/build.sh",
+        "test": "node --test test/*.test.mjs",
+        "prepublishOnly": "node scripts/guard-publish.mjs",
+        "replay": "node scripts/replay.mjs",
+        "verify:injected-context": "node scripts/verify-injected-context.mjs",
+        "verify:lan-management": "node scripts/verify-lan-management.mjs"
+    },
+    "bin": {
+        "dsh-paopao-doctor": "bin/doctor.mjs",
+        "dsh-onebot-doctor": "bin/doctor.mjs"
+    },
+    "homepage": "https://github.com/ZhongYiSS/dsh-onebot-paopao#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ZhongYiSS/dsh-onebot-paopao.git"
+    },
+    "bugs": {
+        "url": "https://github.com/ZhongYiSS/dsh-onebot-paopao/issues"
     }
-  },
-  "dshx": {
-    "contributes": {
-      "tools": [
-        "qq_send_image",
-        "qq_proactive_start",
-        "qq_proactive_stop",
-        "qq_send_voice",
-        "qq_send_video",
-        "qq_send_file",
-        "qq_send_forward",
-        "qq_napcat_api",
-        "qq_send_card",
-        "qq_group_history",
-        "qq_video_look",
-        "bili_like",
-        "bili_coin",
-        "bili_fav",
-        "bili_comment",
-        "bili_send_message",
-        "bili_pick_video"
-      ],
-      "skills": []
-    }
-  },
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/dsh-agent": "*",
-    "@deepseek-ai/dsh-llm": "*",
-    "@deepseek-ai/dsh-session": "*",
-    "@deepseek-ai/dsh-system-prompt": "*",
-    "@deepseek-ai/dsh-tools": "*",
-    "@deepseek-ai/dsh-typert-protocol": "*",
-    "@deepseek-ai/dsh-util-values": "*",
-    "@deepseek-ai/schemastery": "*"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-agent": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-llm": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-session": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-system-prompt": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-tools": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-typert-protocol": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-util-values": {
-      "optional": true
-    },
-    "@deepseek-ai/schemastery": {
-      "optional": true
-    }
-  },
-  "dependencies": {
-    "@napi-rs/canvas": "1.0.13",
-    "fontkit": "2.0.4",
-    "qrcode": "^1.5.4",
-    "ws": "8.22.0"
-  },
-  "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/ws": "^8.5.12",
-    "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
-  },
-  "scripts": {
-    "build": "./scripts/build.sh",
-    "test": "node --test test/*.test.mjs",
-    "prepublishOnly": "node scripts/guard-publish.mjs",
-    "replay": "node scripts/replay.mjs",
-    "verify:injected-context": "node scripts/verify-injected-context.mjs",
-    "verify:lan-management": "node scripts/verify-lan-management.mjs"
-  },
-  "bin": {
-    "dsh-paopao-doctor": "bin/doctor.mjs",
-    "dsh-onebot-doctor": "bin/doctor.mjs"
-  },
-  "homepage": "https://github.com/ZhongYiSS/dsh-onebot-paopao#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ZhongYiSS/dsh-onebot-paopao.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ZhongYiSS/dsh-onebot-paopao/issues"
-  }
 }
