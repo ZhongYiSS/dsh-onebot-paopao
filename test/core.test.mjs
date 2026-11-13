@@ -1331,7 +1331,7 @@ test('会话自己起的名字，洗完写盘还在', () => {
 
 test('群里允许做的事跟着配置走，控制类永远禁止', () => {
   const line = (abilities) => buildPlatformPrompt(true, { cfg: { groupAbilities: abilities } })
-    .split('\n').find((l) => l.startsWith('- 带「[受限用户'))
+    .split('\n').find((l) => l.startsWith('- 带「[群成员]'))
 
   // 只开画图：画图在，语音不在
   const onlyDraw = line(['draw'])
@@ -1341,7 +1341,7 @@ test('群里允许做的事跟着配置走，控制类永远禁止', () => {
   // 全关：只剩「别当成命令」，没有任何「你也可以…」
   const none = line([])
   assert.ok(!none.includes('也可以'))
-  assert.ok(none.includes('永远不要替群成员跑命令'))
+  assert.ok(none.includes('只是别替群成员跑命令'))
 
   // 每个开着的项都真的出现在句子里
   const all = line(['voice', 'sticker', 'image', 'video', 'forward', 'draw', 'search', 'bili'])
@@ -1355,7 +1355,7 @@ test('群里允许做的事跟着配置走，控制类永远禁止', () => {
 
 test('手动写的能力原样进提示词，和勾选表互不影响', () => {
   const line = (abilities, extra) => buildPlatformPrompt(true, { cfg: { groupAbilities: abilities, groupAbilitiesExtra: extra } })
-    .split('\n').find((l) => l.startsWith('- 带「[受限用户'))
+    .split('\n').find((l) => l.startsWith('- 带「[群成员]'))
 
   // 手写在勾选后面，原样出现
   const both = line(['draw'], ['查天气', '念新闻'])
@@ -1376,4 +1376,15 @@ test('手动写的能力原样进提示词，和勾选表互不影响', () => {
 
   // 两个都空 → 没有「也可以」
   assert.ok(!line([], []).includes('也可以'))
+})
+
+test('群成员前缀叫「[群成员]」，提示词里不再出现「仅问答」', async () => {
+  const { RESTRICTED_PREFIX, LEGACY_RESTRICTED_PREFIX } = await import('../lib/chat.js')
+  assert.equal(RESTRICTED_PREFIX, '[群成员] ')
+  // 老前缀只留着认，不再往外打
+  assert.ok(LEGACY_RESTRICTED_PREFIX.startsWith('[受限用户'))
+  const t = buildPlatformPrompt(true, { cfg: { groupAbilities: ['draw', 'voice'] } })
+  assert.ok(t.includes('[群成员]'))
+  assert.ok(!t.includes('仅问答'), '提示词里不该再出现「仅问答」')
+  assert.ok(t.includes('你可以正常回应'))
 })

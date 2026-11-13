@@ -102,7 +102,9 @@ export declare function sanitizeNickname(nickname: string): string;
  */
 export declare function buildGroupMessagePrefix(nickname: string, userId: string, mentioned: boolean): string;
 /** Soft-cap prefix for restricted (member-role) group users. */
-export declare const RESTRICTED_PREFIX = "[\u53D7\u9650\u7528\u6237:\u4EC5\u95EE\u7B54] ";
+export declare const RESTRICTED_PREFIX = "[群成员] ";
+/** 老版本用过的那一版，只为兼容。 */
+export declare const LEGACY_RESTRICTED_PREFIX = "[\u53D7\u9650\u7528\u6237:\u4EC5\u95EE\u7B54] ";
 /**
  * M3-D5: wrap untrusted user content (message body + quote/merged-forward
  * expansions) in the explicit prompt-injection boundary. Everything between

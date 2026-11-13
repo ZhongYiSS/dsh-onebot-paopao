@@ -70,7 +70,7 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 | 出站 | 正文 ≤ `textImageThreshold`（默认 150）字符单条发送、**超过阈值渲染 t2i 文字图卡片**（AstrBot 风格：标题/引用/列表/表格/代码块/彩色 emoji；渲染失败、PNG 超 `outboundImageMaxBytes` 或 `<=0` 禁用卡片时回退单条纯文本）、Markdown 剥离为 QQ 纯文本、[[qq_forward]] 合并转发（群/私聊）、**实时中间消息**（interimMessages：每条中间文本立即发出、实时可见；各自在 `interimRecallMs`（默认 90s）后自动单独撤回；回合结束时先把整轮中间消息渲染成一张 **t2i 小结卡**、立即撤回仍在屏幕上的原文、再发送最终回复——不用回合末合并转发，避免长回合「原文超 2 分钟撤不回+转发卡重复」；`interimRecall: false` 时降级为只发不撤（无小结卡、不撤回））、**宿主「计划书/提问卡」自动中继**（模型调用 exit_plan_mode / ask_user_question 时把计划全文/问题选项发到 QQ）、正在输入提示（set_input_status，仅私聊） |
 | 命令 | 斜杠命令（仅管理员）：`/new` 开新会话、`/stop` 停止生成、`/steer <补充内容>` 向运行中的任务补充指令（无运行任务时回用法提示；详见下方命令表与 `newMessagePolicy` 配置）、`/model` 查看或切换当前会话模型（`--default` 修改部署默认；无参输出两级序号列表，回复序号选 provider → 再回复序号选模型）、`/workspace` 查看或切换工作区（无参编号列表，回复序号即选）、`/preset` 查看或切换 agent 预设（无参编号列表，回复序号即选）、`/session` 查看可切回历史会话并按序号切回（`/new`、`/workspace`、`/preset` 切换下来的旧会话进列表，可来回切，历史上下文恢复）、`/status` 会话全景、`/doctor [export [参考号]]`（别名 `/healthcheck`）运行体检（export [参考号] 导出脱敏诊断包 qq-diagnostics-*.zip，文件名含触发参考号）、`/retry` 重跑上一条、`/id` 会话标识、`/ver` 版本、`/ocr` 识别最近图片、`/mode` 切换出站模式（跨重启持久化）、`/plan` 计划模式、`/permission` 切换宿主权限预设（QQ 别名 `w`=工作区可写+需审批、`f`=全权+免审批；完整预设名照传，未知名由宿主报错并回显可用列表；无参查看当前与可用列表，序号按 available 顺序）、`/goal` 目标记录（跨重启持久化）、`/help` 帮助；未知斜杠命令默认拦截并提示相近命令（`unknownCommand: passthrough` 改为透传给模型） |
 | 工具 | `qq_send_image`（≤9 张，路径或 URL）、`qq_send_voice`、`qq_send_video`、`qq_send_file`、`qq_send_forward`、`qq_napcat_api`（14 个白名单 action）、`qq_group_history`（文件编辑工具 `code_safe_edit` 等已拆至独立插件 dsh-safe-edit，见下文「安全编辑」） |
-| 权限 | 管理员白名单（`ONEBOT_ALLOWED_USERS`）、dm/group 策略（open/allowlist/disabled）、群聊 @提及 gating、受限用户 [受限用户:仅问答] 软限制、出站敏感内容审计 |
+| 权限 | 管理员白名单（`ONEBOT_ALLOWED_USERS`）、dm/group 策略（open/allowlist/disabled）、群聊 @提及 gating、群成员 [群成员] 软限制、出站敏感内容审计 |
 | 会话 | 每个 QQ 会话一个持久 Agent（session id 稳定派生），重启后自动 resume；按 `agentPreset`/`workspacePath` 挂载到 preset 与工作区；每轮结束 flush 落盘 |
 | 运维 | 热加载：profile 层 patch 的 **config 覆盖**与 **insert 新增/删除**均热生效——插件 fiber 秒级原地重启（宿主进程不重启；代价：QQ 桥一次秒级重连、在途回合中断）；touch/内容未变不触发任何动作；bundle 自带 patch、仓库模板、部署副本的 patch 文件与根配置 `cordis.yml` 的改动**不**热生效；临时媒体 TTL 过期清理 |
 | 提示词 | 自动注入 QQ 平台说明（纯文本输出、图片/语音标注 `[图片]`/`[语音]` 占位、工具与命令指引、禁宿主交互卡）；按**每个 QQ 会话 agent 自身作用域**注入，Web 会话不可见 |
@@ -127,7 +127,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 **看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-13（0.5.16：私聊分级——白名单里的人进受限预设；私聊和群聊的预设解析不了都拒绝开会话（fail-closed）；权限组七个键面板可改并就地生效；`/setup` 在反连模式下不再崩；看视频有自己的请求头与缓存键；设置落盘到 `settings.json`）——`npm test` **118 个用例全绿**、`node scripts/guard-publish.mjs` 通过（111 个文件、17 个工具）。
+最后验证：2026-11-13（0.5.16：私聊分级——白名单里的人进受限预设；私聊和群聊的预设解析不了都拒绝开会话（fail-closed）；权限组七个键面板可改并就地生效；`/setup` 在反连模式下不再崩；看视频有自己的请求头与缓存键；设置落盘到 `settings.json`）——`npm test` **125 个用例全绿**、`node scripts/guard-publish.mjs` 通过（111 个文件、17 个工具）。
 
 ## 安装
 
@@ -286,12 +286,12 @@ B站 那些能力（刷视频、看视频、回私信）在设置页「B站与�
 | `injectDryRun` | `true` | 注入干跑（W1，**强烈建议保持 `true`**）：注入回合触发的全部出站写操作（发消息/撤回等，**含异步模型回合的最终回复**——拦截点在出站动作层）被拦截计数、原文进 trace 事件、绝不真发 QQ；真实消息到达同一会话立即解除拦截（不连坐真人）；`false` = 注入内容会真实发送，仅限隔离环境实验 |
 | `injectIntervalMs` | `2000` | 注入队列轮询间隔（毫秒，W1；最小 500） |
 | `unknownCommand` | `intercept` | 未知斜杠命令处置：`intercept`（默认）拦截并提示相近命令（前缀匹配优先，编辑距离 ≤2 兜底且仅输入长度 ≥4 时启用，至多 3 个候选；无候选提示发 `/help` 或去掉开头 `/` 重发）；`passthrough` 维持旧行为透传给模型。非 `/纯单词` 开头的文本（如路径 `/tmp/x`）不受影响 |
-| `newMessagePolicy` | `queue` | 任务运行中收到新普通消息的处理策略（P1）：`queue`（默认）=排队——消息在当前任务结束后按序处理为后续回合，等待期间每运行回合至多回复一次排队提示；`steer`=插话——运行中收到的新普通纯文字消息作为补充指令加入当前任务（模型在下一步读取）并回复提交提示。例外：图片/文件/语音/带引用或合并转发消息与 `[受限用户:仅问答]` 群成员消息两种模式下都按排队处理（软限制不放宽、媒体管线不被绕过）；自动插话资格由 `autoSteerPolicy` 控制；`/steer` 命令两种模式下均可用；无运行中任务时行为与该配置无关（与 0.8.1 一致）。设置页 behavior 组可改，热重启生效 |
+| `newMessagePolicy` | `queue` | 任务运行中收到新普通消息的处理策略（P1）：`queue`（默认）=排队——消息在当前任务结束后按序处理为后续回合，等待期间每运行回合至多回复一次排队提示；`steer`=插话——运行中收到的新普通纯文字消息作为补充指令加入当前任务（模型在下一步读取）并回复提交提示。例外：图片/文件/语音/带引用或合并转发消息与 `[群成员]` 群成员消息两种模式下都按排队处理（软限制不放宽、媒体管线不被绕过）；自动插话资格由 `autoSteerPolicy` 控制；`/steer` 命令两种模式下均可用；无运行中任务时行为与该配置无关（与 0.8.1 一致）。设置页 behavior 组可改，热重启生效 |
 | `autoSteerPolicy` | `admin` | steer 模式下自动插话的发送者资格（T9，用户裁决 2026-10-12）：`admin`（默认）=仅管理员可自动插话；`all`=所有非受限发送者均可。不具备资格的消息按排队处理（入队+排队提示）；`/steer` 命令始终仅管理员、不受本项影响；`queue` 模式行为完全不变。设置页 behavior 组可改，热重启生效 |
 | `deferredTimeoutMs` | `600000` | 等待模型回复超时阈值（毫秒，T3/P2 超时补发）：回合超过该时长没有任何模型输出时，向聊天回复一条超时提醒并把回合登记进补发注册表（继续运行、不放弃）；回合完成后向原聊天补发最终文字（带「（超时补发）」前缀，走既有出站分段/t2i 规则），只补最终文字与终态通知——不重放审批/提问卡/文件工具调用/图片；发送明确失败最多尝试 3 次（退避 2s/10s），发送结果不确定（动作超时/非网关错误，消息可能已到达）时保留记录并停止自动重试防重复；注册表逐行 JSONL 落盘 `mediaDir/deferred-delivery.jsonl`（原子写、逐行损坏降级、缺失=全新），插件重启后自动恢复未完结条目的跟踪；`/stop` 只终止当前聊天提交的回合并显式终止该聊天的补发跟踪（其他聊天不受影响）；正常完成（未超时）零注册表写入、零补发。设置页 behavior 组可改，热重启生效；`0`=关闭 |
 | `dmPolicy` | `open` | 私聊策略：`open`(仅管理员)/`allowlist`(白名单)/`disabled` |
 | `groupPolicy` | `open` | 群聊策略：`open`(所有人)/`allowlist`/`disabled` |
-| `restrictedMemberPrefix` | `true` | 群聊非管理员消息注入 `[受限用户:仅问答]` 前缀（软限制） |
+| `restrictedMemberPrefix` | `true` | 群聊非管理员消息注入 `[群成员]` 前缀（软限制） |
 | `adminUsers` | `[]` | 管理员 QQ；也可用 `ONEBOT_ALLOWED_USERS` 环境变量。**必须至少设置一个**，否则私聊（dmPolicy=open）与斜杠命令无人可用 |
 | `allowFrom` / `groupAllowFrom` | `[]` | 白名单用户/群 |
 | `interimMessages` | `true` | 工具调用之间的中间文本是否立即发送；`false` 只发最终回复 |
@@ -407,7 +407,7 @@ dsh Web GUI 的设置页提供本插件的可视化配置（host-plane Remote `o
 `/session` 的可切回列表按 chat 持久化在媒体目录的 switchable-sessions.json（读写纪律与 retired-sessions.json
 一致：文件缺失=全新、损坏保留内存、原子写；每 chat 上限 20 条、去重、最新在前）。列表每项渲染一条内容预览
 （该会话事件日志第一条真实用户输入：kind 'user' 或本插件署名的 QQ 消息优先，缺失时回退任何 user/message；
-提取全部 text 块拼接、剥去 QQ 入站的 <user_message> 包裹与拼接在边界外的可信前缀（[受限用户:仅问答] / [HH:MM 昵称(QQ)]，包裹不完整或空正文则原样回退）后换行折叠、按码点截断 ≤40 字，emoji 不拆半；找不到用户输入显示「（无对话内容）」）、
+提取全部 text 块拼接、剥去 QQ 入站的 <user_message> 包裹与拼接在边界外的可信前缀（[群成员] / [HH:MM 昵称(QQ)]，包裹不完整或空正文则原样回退）后换行折叠、按码点截断 ≤40 字，emoji 不拆半；找不到用户输入显示「（无对话内容）」）、
 建立时间（会话 header 的 createdAt，取不到则省略）、退休时间与截短 id（前 8+…+后 8 字符，保留两侧便于辨认）。
 预览经 sessionPersistence 的 read handle 冷读日志前 24 个事件取得（不开写所有权，读完即 close）；单会话日志
 缺失/损坏/读取失败只降级该项为「（内容不可读）」，其余项与切回功能不受影响。切换成功后目标会话解除退休
@@ -433,7 +433,7 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 
 | 选项 | dmPolicy（私聊） | groupPolicy（群聊） |
 |---|---|---|
-| `open` | **仅管理员**可私聊（`adminUsers`/`ONEBOT_ALLOWED_USERS`/`ownerQQ`；`allowAllUsers` 对私聊**已经不管用**——私聊等于这部电脑的完整控制权，不能交给任意人） | **所有群**可聊（默认值已改成 `allowlist`，要放开得自己改；群内消息还受 `requireMention` 控制：需 @ 或回复机器人的消息才触发；群成员带 [受限用户:仅问答] 软限制） |
+| `open` | **仅管理员**可私聊（`adminUsers`/`ONEBOT_ALLOWED_USERS`/`ownerQQ`；`allowAllUsers` 对私聊**已经不管用**——私聊等于这部电脑的完整控制权，不能交给任意人） | **所有群**可聊（默认值已改成 `allowlist`，要放开得自己改；群内消息还受 `requireMention` 控制：需 @ 或回复机器人的消息才触发；群成员带 [群成员] 软限制） |
 | `allowlist` | 仅 **`allowFrom`** 白名单 QQ 可私聊（不要求是管理员） | 仅 **`groupAllowFrom`** 白名单群可聊 |
 | `disabled` | 私聊全部拒绝 | 群聊全部拒绝 |
 
@@ -479,7 +479,7 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 - QQ 不渲染 Markdown → 输出纯文本（编号/短横线列表、行内反引号）。
 - 发图/文件/语音/视频用 `qq_send_*` 工具；合并转发用 `qq_send_forward`。
 - 用户发来的图片/语音/视频在文本中标注为 `[图片]`/`[语音]`/`[视频]` 占位（路径不进入文本）；无可用看图工具时如实告知用户。
-- 群聊消息带 `[HH:MM 昵称(QQ)]` 前缀；受限用户消息带 `[受限用户:仅问答]` 前缀（仅回答，禁止文件/终端/配置操作）。
+- 群聊消息带 `[HH:MM 昵称(QQ)]` 前缀；群成员消息带 `[群成员]` 前缀（仅回答，禁止文件/终端/配置操作）。
 - 本通道为 QQ，宿主无 Web 交互卡：禁止调用 `ask_user_question` / `exit_plan_mode`（确认卡仅 Web 可用，会阻塞对话），提问/确认走纯文本；宿主计划模式下输出纯文本计划并提示「/plan off 退出」。
 - 斜杠命令由插件拦截（18 个，仅管理员，`/help` 查看）；未知斜杠命令默认拦截并提示相近命令，配置 `unknownCommand: passthrough` 时透传给模型；非 `/纯单词` 开头的文本（如路径）仍正常交给模型。
 - 修改宿主文件走内置 read/edit（行级 hash 锚点、dsh-better-edit 自动 undo），勿用 write 整文件覆盖（清空 undo 历史）。
