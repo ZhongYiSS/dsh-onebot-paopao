@@ -1,8 +1,8 @@
 # dsh-onebot-paopao（泡泡）
 
-> ⚠️ **测试中，请勿安装。** 这是 0.5.6，还在测试：界面和平台说明这两周一直在改，改动还没经过完整的人工回归（面板各项、NapCat 起停、主动开口、B站 来料都还没逐个验过）。等这轮测试过了再放出来。
+> ⚠️ **测试中：可以试装，但别指望它稳。** 当前 0.5.16。界面、平台说明、权限分级这几周一直在改，还没跑过完整的人工回归（面板各项、NapCat 起停、主动开口、B站 来料）。出问题请开 issue，把日志和复现步骤带上。
 >
-> ⚠️ **major bug, do not install.** The 0.5.0 defaults are broken: a fresh install has an empty event pool (no labels, so it never speaks), some settings still show raw millisecond values, and the dependency list is too heavy. Being fixed — please wait.
+> ⚠️ **Work in progress — install at your own risk.** Current version 0.5.16 (see README.en.md).
 
 > **[English](README.en.md) | 中文**
 
@@ -127,7 +127,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 **看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-12（0.5.6：平台说明去掉本机专属内容（表情包不列文件名、记忆说明删掉、语音只讲发文件）、设置回显不再夹取、NapCat 启动脚本改 UTF-16LE、设置存盘到 settings.json；0.5.4：按外部审计修的 50 处——进程控制、出站 SSRF/钉地址、注入边界、稳定性；0.5.1 起：默认事件带词、秒/毫秒夹取、qrcode 依赖、主人 QQ 生效、私聊/群聊安全闸、群里跑受限预设、体检分必需/可选）——`npm test` **108 个用例全绿**、`node scripts/guard-publish.mjs` 通过（111 个文件、17 个工具）。
+最后验证：2026-11-13（0.5.16：私聊分级——白名单里的人进受限预设；私聊和群聊的预设解析不了都拒绝开会话（fail-closed）；权限组七个键面板可改并就地生效；`/setup` 在反连模式下不再崩；看视频有自己的请求头与缓存键；设置落盘到 `settings.json`）——`npm test` **118 个用例全绿**、`node scripts/guard-publish.mjs` 通过（111 个文件、17 个工具）。
 
 ## 安装
 
@@ -494,7 +494,7 @@ chat 回退到下一条消息新建会话，不会卡死。损坏（碰撞/恢�
 
 ```sh
 ./scripts/build.sh                 # 编译 src/ → lib/
-npm test                           # 99 个测试（node:test）：权重 / 事件 / 话头 / 聊天强制事件 / 限制 / 会话钉 / 积分流水
+npm test                           # 118 个测试（node:test）：权重 / 事件 / 话头 / 聊天强制事件 / 限制 / 会话钉 / 积分流水
 ```
 
 要点（来自移植源 DEVLOG 的教训）：

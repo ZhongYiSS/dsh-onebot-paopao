@@ -1,8 +1,8 @@
 # dsh-onebot-paopao (PaoPao)
 
-> ⚠️ **Work in progress — please do not install.** This is 0.5.6. The UI and the platform prompt have been
-> changing daily and have not been through a full manual regression pass yet (panels, NapCat start/stop,
-> proactive speaking and Bilibili intake are still unverified end to end). Wait until this round of testing is done.
+> ⚠️ **Work in progress — install at your own risk.** Current version 0.5.16. The UI, the platform prompt and
+> the permission tiers are still changing and have not been through a full manual regression pass yet (panels,
+> NapCat start/stop, proactive speaking, Bilibili intake). Please open an issue when something breaks.
 
 > **English | [中文](README.md)**
 
