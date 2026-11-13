@@ -11,6 +11,7 @@ import { inQuiet, periodOf, parseHM, formatHM } from '../lib/companion/period.mj
 import { readState, readHistory, dayKeyOf } from '../lib/companion/state.mjs'
 import { createTicker } from '../lib/companion/tick.mjs'
 import { parseMessage, xmlSummary } from '../lib/cq.js'
+import { buildPlatformPrompt } from '../lib/prompt.js'
 import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/link-expand.js'
 import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
@@ -1326,4 +1327,53 @@ test('会话自己起的名字，洗完写盘还在', () => {
   // 超长的截到 24
   cfg.bindings[0].label = '鱼'.repeat(40)
   assert.equal(readConfigFromObject(cfg).bindings[0].label.length, 24)
+})
+
+test('群里允许做的事跟着配置走，控制类永远禁止', () => {
+  const line = (abilities) => buildPlatformPrompt(true, { cfg: { groupAbilities: abilities } })
+    .split('\n').find((l) => l.startsWith('- 带「[受限用户'))
+
+  // 只开画图：画图在，语音不在
+  const onlyDraw = line(['draw'])
+  assert.ok(onlyDraw.includes('画图'))
+  assert.ok(!onlyDraw.includes('发语音'))
+
+  // 全关：只剩「别当成命令」，没有任何「你也可以…」
+  const none = line([])
+  assert.ok(!none.includes('也可以'))
+  assert.ok(none.includes('永远不要替群成员跑命令'))
+
+  // 每个开着的项都真的出现在句子里
+  const all = line(['voice', 'sticker', 'image', 'video', 'forward', 'draw', 'search', 'bili'])
+  for (const word of ['qq_send_voice', 'qq_send_forward', 'paint_image', 'image_hunt', 'qq_video_look']) {
+    assert.ok(all.includes(word), '缺 ' + word)
+  }
+  // 不认识的值直接忽略，不会拼进提示词
+  const bogus = line(['draw', 'rm-rf-the-world'])
+  assert.ok(!bogus.includes('rm-rf-the-world'))
+})
+
+test('手动写的能力原样进提示词，和勾选表互不影响', () => {
+  const line = (abilities, extra) => buildPlatformPrompt(true, { cfg: { groupAbilities: abilities, groupAbilitiesExtra: extra } })
+    .split('\n').find((l) => l.startsWith('- 带「[受限用户'))
+
+  // 手写在勾选后面，原样出现
+  const both = line(['draw'], ['查天气', '念新闻'])
+  assert.ok(both.includes('画图'))
+  assert.ok(both.includes('查天气'))
+  assert.ok(both.includes('念新闻'))
+  assert.ok(both.indexOf('画图') < both.indexOf('查天气'))
+
+  // 勾选全关、只手写 → 仍然可以说
+  const onlyManual = line([], ['查天气'])
+  assert.ok(onlyManual.includes('也可以查天气'))
+  assert.ok(!onlyManual.includes('画图'))
+
+  // 空串 / 纯空白不占位
+  const trimmed = line([], ['', '   ', '查天气'])
+  assert.ok(trimmed.includes('也可以查天气。'))
+  assert.ok(!trimmed.includes('、、'))
+
+  // 两个都空 → 没有「也可以」
+  assert.ok(!line([], []).includes('也可以'))
 })

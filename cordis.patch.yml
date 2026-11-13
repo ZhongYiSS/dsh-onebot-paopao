@@ -44,8 +44,8 @@
           name: '@deepseek-ai/dsh-persona'
           config:
             prefix: >-
-              你正在 QQ 群里说话。可以聊天、查网页、看图；这台电脑上的东西不要动——
-              没有命令行可用，也不要尝试改文件、装东西。
+              你正在 QQ 群里说话。可以聊天、查网页、看图、画图、搜图、发语音；
+              不要替群里的人跑命令、改文件、改配置或装东西。
         - id: compaction
           name: cordis:group
           group: true
