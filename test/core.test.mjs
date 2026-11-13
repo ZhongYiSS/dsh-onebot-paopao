@@ -15,6 +15,7 @@ import { biliLinkNote, findBiliRefs, formatDuration, formatCount } from '../lib/
 import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
 import { matchCloseChat, matchOpenChat } from '../lib/inbound.js'
+import { dmAllowed, groupAllowed, classifyUserRole } from '../lib/chat.js'
 import { validatePinSessionId, shortPinId } from '../lib/pin-id.js'
 import { defaultConfig, normalizeProfile, readConfigFromObject } from '../lib/companion/app.mjs'
 import { writeQq } from '../lib/companion/ext-settings.mjs'
@@ -1248,6 +1249,23 @@ test('平台提示词：表情包只给目录，一个文件名都不写', async
 
 // 面板字段 ↔ setConfig 白名单：两边走散过一次（面板能改、服务端不认、重启就回默认）。
 // 这里静态比对源码，schema 里有的键只要上了面板，就必须在白名单里。
+// 私聊分级（哥哥 m22809 定的形状）：管理员走完全权限，白名单只能聊天。
+test('私聊白名单模式：管理员不会被白名单挡在外面，其他人仍然进不来', () => {
+  const policy = { dmPolicy: 'allowlist', allowFrom: ['20002'], adminUsers: ['10001'] }
+  assert.equal(dmAllowed('10001', policy), true, '管理员不在 allowFrom 里也要放行')
+  assert.equal(dmAllowed('20002', policy), true, '白名单的人能私聊')
+  assert.equal(dmAllowed('30003', policy), false, '不在任何名单里的人进不来')
+})
+
+test('私聊 open 仍然只认管理员，群聊 allowlist 只看群号', () => {
+  assert.equal(dmAllowed('20002', { dmPolicy: 'open', allowFrom: ['20002'], adminUsers: ['10001'] }), false)
+  assert.equal(dmAllowed('10001', { dmPolicy: 'open', allowFrom: [], adminUsers: ['10001'] }), true)
+  assert.equal(groupAllowed('50001', { groupPolicy: 'allowlist', groupAllowFrom: ['50001'] }), true)
+  assert.equal(groupAllowed('50002', { groupPolicy: 'allowlist', groupAllowFrom: ['50001'] }), false)
+  assert.equal(classifyUserRole('10001', ['10001']), 'admin')
+  assert.equal(classifyUserRole('20002', ['10001']), 'member')
+})
+
 // 权限组（管理员名单/私聊策略/群聊策略/两个白名单/允许所有用户）面板上有，
 // 但 setConfig 白名单里一直没有 → 哥哥改了没反应：界面回「已保存」，名单没动。
 test('权限组每个键，setConfig 都收得进、并且改完会重算策略', async () => {
