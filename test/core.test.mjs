@@ -16,7 +16,7 @@ import { buildNewsCard, cardSegments, clampText } from '../lib/card.js'
 import { styleReason } from '../lib/bili-act.js'
 import { matchCloseChat, matchOpenChat } from '../lib/inbound.js'
 import { validatePinSessionId, shortPinId } from '../lib/pin-id.js'
-import { defaultConfig, normalizeProfile } from '../lib/companion/app.mjs'
+import { defaultConfig, normalizeProfile, readConfigFromObject } from '../lib/companion/app.mjs'
 import { writeQq } from '../lib/companion/ext-settings.mjs'
 
 test('clamp 夹在 [-20,100]，坏值当 0', () => {
@@ -1262,4 +1262,22 @@ test('设置页每个视觉/互动字段，setConfig 都收得进', async () => 
   const whitelist = new Set([...block.matchAll(/'([A-Za-z][A-Za-z0-9]+)'/g)].map((m) => m[1]))
   const missing = fieldKeys.filter((k) => !whitelist.has(k))
   assert.deepEqual(missing, [], '这些键面板能改、setConfig 却不收：' + missing.join(', '))
+})
+
+// 会话卡牌改名：面板改完、提示已保存，读回来又是原名。
+// 根因在「洗完再写」那一步——readConfigFromObject 只写 chatId/profileId/enabled，
+// 把 label 一起吃掉了，所以每一笔保存都把名字抹平。
+test('会话自己起的名字，洗完写盘还在', () => {
+  const cfg = defaultConfig()
+  cfg.bindings = [{ chatId: 'private:1', profileId: cfg.profiles[0].id, enabled: true, label: '小鱼' }]
+  const written = readConfigFromObject(cfg)
+  assert.deepEqual(written.bindings[0], {
+    chatId: 'private:1', profileId: cfg.profiles[0].id, enabled: true, label: '小鱼',
+  })
+  // 没起名字的不硬塞空 label
+  cfg.bindings[0].label = '   '
+  assert.equal('label' in readConfigFromObject(cfg).bindings[0], false)
+  // 超长的截到 24
+  cfg.bindings[0].label = '鱼'.repeat(40)
+  assert.equal(readConfigFromObject(cfg).bindings[0].label.length, 24)
 })
