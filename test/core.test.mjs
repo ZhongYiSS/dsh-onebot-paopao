@@ -1248,6 +1248,22 @@ test('平台提示词：表情包只给目录，一个文件名都不写', async
 
 // 面板字段 ↔ setConfig 白名单：两边走散过一次（面板能改、服务端不认、重启就回默认）。
 // 这里静态比对源码，schema 里有的键只要上了面板，就必须在白名单里。
+// 权限组（管理员名单/私聊策略/群聊策略/两个白名单/允许所有用户）面板上有，
+// 但 setConfig 白名单里一直没有 → 哥哥改了没反应：界面回「已保存」，名单没动。
+test('权限组每个键，setConfig 都收得进、并且改完会重算策略', async () => {
+  const { readFileSync } = await import('node:fs')
+  const idx = readFileSync(new URL('../lib/index.js', import.meta.url), 'utf8')
+  const start = idx.indexOf('setConfig: (patch) =>')
+  const block = idx.slice(start, start + 6000)
+  const whitelist = new Set([...block.matchAll(/'([A-Za-z][A-Za-z0-9]+)'/g)].map((m) => m[1]))
+  const permKeys = ['adminUsers', 'dmPolicy', 'groupPolicy', 'allowFrom', 'groupAllowFrom', 'allowAllUsers', 'requireMention']
+  const missing = permKeys.filter((k) => !whitelist.has(k))
+  assert.deepEqual(missing, [], '这些权限键面板能改、setConfig 却不收：' + missing.join(', '))
+  // 收进去还不够：策略是 apply 时算一次的快照，得就地重算，否则运行中的判断还是老名单
+  assert.ok(idx.includes('export const POLICY_KEYS'), 'POLICY_KEYS 没导出')
+  assert.ok(block.includes('Object.assign(bridge.deps.policy'), 'setConfig 没有重算策略快照')
+})
+
 test('设置页每个视觉/互动字段，setConfig 都收得进', async () => {
   const { readFileSync } = await import('node:fs')
   const root = new URL('../', import.meta.url)
