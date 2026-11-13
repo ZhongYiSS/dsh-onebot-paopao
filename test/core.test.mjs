@@ -1249,6 +1249,18 @@ test('平台提示词：表情包只给目录，一个文件名都不写', async
 
 // 面板字段 ↔ setConfig 白名单：两边走散过一次（面板能改、服务端不认、重启就回默认）。
 // 这里静态比对源码，schema 里有的键只要上了面板，就必须在白名单里。
+// 安全第一（哥哥 m22930）：预设配错 / 没装，绝不允许悄悄退回完全权限。
+// 群聊以前只 log.warn 再退回默认预设，等于「配置写错了 = 把电脑交给群里所有人」。
+test('群聊预设解析不了就拒绝开会话，不退回默认预设', async () => {
+  const { readFileSync } = await import('node:fs')
+  const src = readFileSync(new URL('../lib/registry.js', import.meta.url), 'utf8')
+  const at = src.indexOf("if (isGroupChat && groupWanted !== '')")
+  assert.ok(at > 0, '找不到群聊预设分支')
+  const branch = src.slice(at, at + 900)
+  assert.ok(branch.includes('presetBlocked = true'), '群聊预设失败时没有 fail-closed')
+  assert.ok(!/log\(.warn., ?.群聊预设 /.test(branch), '群聊预设失败时还在 log.warn 兜底')
+})
+
 // 私聊分级（哥哥 m22809 定的形状）：管理员走完全权限，白名单只能聊天。
 test('私聊白名单模式：管理员不会被白名单挡在外面，其他人仍然进不来', () => {
   const policy = { dmPolicy: 'allowlist', allowFrom: ['20002'], adminUsers: ['10001'] }
