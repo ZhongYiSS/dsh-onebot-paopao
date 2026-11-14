@@ -1,3 +1,17 @@
+## 0.5.28 — 2026-11-14
+
+修一个把设置页整块弄没的错（0.5.26 引进的）：
+
+- `lib/client.js`：`SettingsOverrideCard`（0.5.26 新加的「面板存的值压着配置文件」卡）
+  被写在 `BiliPanel` 的函数体里，却在 `ExtQqSection` 里 `h()` 它 —— 浏览器渲染时
+  `ReferenceError: SettingsOverrideCard is not defined`，React 把整棵子树拆掉，
+  表现就是「QQ 通道 → 设置」整页空白，而服务端接口全是 200、日志里什么都没有。
+  已把这张卡提到模块作用域。
+- 新增 `scripts/client-scope.mjs` + `test/client-scope.test.mjs`：按「函数作用域链」
+  静态检查 `lib/client.js` 里每个 `h(SomeComponent)` 是否真看得见那个组件，
+  并且自带一条「拿这次事故的形状喂自己」的自检，避免检查器本身失效。
+  验证：对 0.5.27 的 `lib/client.js` 报 1 条（正是 `SettingsOverrideCard`），对修好的报 0 条。
+
 # 更新日志
 ## 0.5.27 — 2026-11-14
 
