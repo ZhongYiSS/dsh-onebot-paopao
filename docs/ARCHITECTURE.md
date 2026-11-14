@@ -42,7 +42,7 @@
 | `lib/tools.js` | ~790 | 17 个 QQ/哔哩哔哩工具的实现与出站围栏 |
 | `lib/commands.js` | ~1200 | 斜杠命令（`/new` `/reset` `/steer` …）、`unwrapUserMessageText` |
 | `lib/cq.js` | ~350 | CQ 码、@ 检测、引用/转发解析、share 摘要 |
-| `lib/chat.js` | ~157 | chatId 解析、`roleOf`、`dmAllowed`、`groupAllowed`、`[群成员]` 前缀常量 |
+| `lib/chat.js` | ~157 | chatId 解析、`classifyUserRole(userId, adminUsers)`、`dmAllowed`、`groupAllowed`、`[群成员]` 前缀常量 |
 | `lib/napcat.js` | ~171 | NapCat 纯函数：目录推断、启动命令、VBS 脚本、二维码信息、进程表解析 |
 | `lib/proc.js` | 116 | 进程枚举/查杀（`listProcs/findNapcat/killTree/waitGone`），不碰 `QQ.exe` |
 | `lib/vision.js` | ~161 | 识图客户端（OpenAI 兼容）+ `parseHeaderJson` |
@@ -50,7 +50,7 @@
 | `lib/settings-remote.js` | ~460 | 设置页 Remote：字段白名单、schema、补丁校验 |
 | `lib/doctor.mjs` | — | 环境体检（`bin/doctor.mjs` + `GET /api/bubble/doctor`） |
 
-### 2.2 陪伴（`lib/companion/*.mjs`，23 个 + `adapters/`）
+### 2.2 陪伴（`lib/companion/*.mjs`，22 个 + `adapters/`）
 
 | 文件 | 职责 |
 |---|---|
@@ -66,12 +66,13 @@
 | `limit.mjs` | 滑动窗口限流 + 距离下次可发多久 |
 | `period.mjs` | 时段划分与免打扰（`24:00` 合法） |
 | `inbox.mjs` | 来料收件箱（B站 动静先落这里，等下一拍照话头注入） |
-| `followup.mjs` | 定时话头（`[LATER n]` / `[AT hh:mm]` 的定时器与配额） |
+| `followup.mjs` | 定时话头（`[LATER n]` 的定时器与每日配额；`[AT hh:mm]` 写法已砍） |
 | `chatroll.mjs` | 「聊天强制事件」：每轮独立掷，抽到就注入「这轮必须…」 |
 | `taste.mjs` | 口味帐：哪个 UP/关键词给过高分 |
 | `ledger.mjs` | 积分流水（`ledger.jsonl`，8MB/60 天滚动，小时折叠） |
 | `bili-watch.mjs` | B站 消息监听：私信/`@我`/回复我的 → `pushInbox` |
-| `bili-login.mjs` / `bili-paths.mjs` / `bili-act.mjs` | B站 登录二维码、凭证路径、点赞投币等动作 |
+| `activity.mjs` | 动作账：点赞/投币/收藏/评论/私信这些「她真做过的事」写进同一本 `history.jsonl`（`kind:'bili-act'`，只在 `ok:true` 时记） |
+| `bili-login.mjs` / `bili-paths.mjs` | B站 登录二维码、凭证路径（**发动作的实现在 `lib/bili-act.js`，不在 companion 里**） |
 | `ext-settings.mjs` | 设置页字段表（`BILI_FIELDS` / `QQ_FIELDS`）与读写归一化 |
 | `video-log.mjs` | 发过的视频账（`videos.json`，防重复发） |
 | `adapters/bili.mjs` | 唯一有「准备器」的事件：挑视频（关键词/热门/详情补全/口味/去重/降级） |
@@ -87,24 +88,27 @@
 `tick.mjs` 的 `tickOne(b, buckets, t, force, dryRun, fresh, biliWeight, followup, globals)` 顺序**固定**，改顺序会改语义：
 
 ```
-⓪.0  绑定关（enabled === false）           → skip('disabled')
-⓪.0b QQ 总开关关（qq-off.json）            → skip('qq-off')，不记账
-①.5  没到点                                → skip('not-due')
-②    免打扰（quiet）                       → skip('quiet')，**不涨权、不记账**
-③    riseByTick(w, profile.risePerTick, floor)
-④    跨天：todayCount 归零
-④.5  idleCheck（他多少分钟没动静）          → skip('idle')
-⑤    pruneWindow + 限流（N 小时 M 条）      → skip('limit')
-⑥    来料优先（peekInbox）/ 追聊（followup） → 有就不用抽卡
-⑦    阈值：canSpeak(w, threshold)           → skip('below')
-⑦'   掷骰：triggerChance(w, threshold, pmax) → skip('dice')
-⑧    drawEvent(mergePool(pool))              → 抽一个事件
+⓪    拿不到 chatId                          → skip('nochat')；上一拍还没跑完 → skip('busy')；总开关关 → skip('off')
+⓪.0  绑定关（enabled === false）             → skipped: 'binding-off'（不涨权、不记账）
+⓪.0b QQ 总开关关（qq-off.json）              → skipped: 'qq-off'（同上）
+①.5  没到点（gap - 5000ms 容差）              → skipped: 'notyet'；手动 / fresh / 追聊不吃这条
+②    免打扰（quiet）                          → skipped: 'quiet'，**不涨权、不记账**
+③    w = riseByTick(w, risePerTick, wFloor)   记 ledger kind:'rise'；state.lastRiseAt
+④    跨天：dayKey 变 → todayCount 归零
+④.5  idleCheck（他多少分钟没动静）             → skipped: 'chatting'
+⑤    pruneWindow + 限流（N 小时 M 条）         → skipped: 'limit'（追聊不吃）
+⑥    来料优先（peekInbox）/ 追聊（followup）    → 有来料就不抽卡，`ev = {id:'watch', label:'回消息'}`
+⑥.1  阈值 canSpeak(w, threshold, wFloor)       → skipped: 'below'
+⑦    掷骰 triggerChance(w, threshold, pmax)    → skipped: 'roll'（带 p 与 roll）
+⑧    drawEvent(mergePool(pool))                → skipped: 'noevent'
 ⑨    addBonus(w, ev.bonus)
-⑩    prepare(adapter)                        → 只有 video 有真准备器
-⑪    buildHint({cue, event, candidates…})    → 话头文本
+⑩    prepare(adapter)                          → 只有 video 有真准备器
+⑪    buildHint({cue, event, candidates…})      → 话头文本
 ⑫    deliver({chatId, text, origin:'bubble'})
 ⑭    记账：ticks.jsonl / history.jsonl / ledger.jsonl
 ```
+
+**skip 原因字符串就是上面这些**（`tick.mjs` 原样写进 `skipped` 字段、`history.jsonl`、账本 note），排查时按它 grep。
 
 **关键实现细节**
 
@@ -134,11 +138,25 @@ binding 关 / 无 profile / releaseBase 非法 → return
 ### 3.3 来料与追聊
 
 - **来料**（B站 私信/@/回复）：`bili-watch.mjs` → `pushInbox(home, chatId, items)` → `inbox.json` → 下一拍照话头里带「B站 有动静」，`origin: 'inbox'`。
-- **追聊**（会话自己写 `[LATER 25]` / `[AT 23:30]`）：`followup.mjs` 起 `setTimeout`（`unref`），到点 `ticker.tick(chatId, {followup:true})`；受 `followupPerDay` / `followupMaxHours` 约束，**只受免打扰管、不受限流管**；`restore()` 会把过点的挪到 5 秒后。
+- **追聊**（会话自己写 `[LATER 25]`）：`followup.mjs` 起 `setTimeout`（`unref`），到点 `ticker.tick(chatId, {followup:true})`；受 `followupPerDay` / `followupMaxHours` 约束，**只受免打扰管、不受限流管**；`restore()` 会把过点的挪到 5 秒后。
+- **`[AT hh:mm]`（「到几点再叫我」）已在 11-09 砍掉**：`prompt.mjs` 的 `readLater` 只认 `[LATER n]`（分钟），`[AT …]` 返回 `null`，`test/core.test.mjs` 有一条断言钉着。别再照老文档实现它。
 
 ### 3.4 消息进出 QQ
 
-入站（`lib/inbound.js` `processInbound`）：解析事件 → `duplicated()` 去重（300 秒窗口）→ `rateLimited()` → 权限（`roleOf`）→ 命令识别 → 防抖合并（`debounceMs`，同 chat 排队）→ 媒体落盘/识图/OCR/转写 → `buildBody()` → 加 `[群成员]` 前缀（非管理员且开关开）→ 包 `<user_message>` 边界 → 交给会话。
+入站（`lib/inbound.js` `processInbound`）**真实顺序**：
+
+```
+normalizeOneBot11 → duplicated()（去重，dedupWindowSeconds）
+→ ignoreSelf（自己的消息）
+→ 权限判定（classifyUserRole / dmAllowed / groupAllowed）
+→ 关键词触发 / 「随意聊聊」开关窗命令（这里会提前 return，不吃关键词冷却）
+→ tryHandleCommand（斜杠命令）
+→ rateLimited()（限流）
+→ 空内容判定
+→ 防抖合并（debounceMs，同 chat 排队）
+→ 媒体落盘 / 识图 / OCR / 转写
+→ buildBody() → 非管理员加 [群成员] 前缀 → 包 <user_message> 边界 → 交给会话
+```
 
 出站（`lib/bridge.js` `sendToChat`）：`noteBubbleScore`（收 `[SCORE]`）→ `chat.bubbleHold` 判 `[HOLD]`（整轮不发，返回 `[]`）→ 剥 `[HOLD]/[SKIP]/[LATER n]/[SCORE n]` → `noteBubbleSent`（记账）→ `outbound.sendToChat`（分句/分条/卡片）。
 
@@ -191,15 +209,15 @@ s = clamp(round(score/10 + (inbound ? inboundBonus : 0)), 0, 12)
 
 | 标记 | 谁读 | 语义 | 代码位置 |
 |---|---|---|---|
-| `[HOLD]` | `bridge.bubbleHoldsTurn` + `sendToChat` | 这一轮**一个字都不发**（但分照收、账照扣） | `lib/bridge.js:545` |
+| `[HOLD]` | `bridge.bubbleHoldsTurn` + `sendToChat` | 这一轮**一个字都不发**（但分照收、账照扣） | `lib/bridge.js:545`（判定）、`:473`（剥除） |
 | `[SCORE n]` | `bridge.noteBubbleScore` | 她给这一轮打 0~12 分，插件剥掉不发 | `lib/bridge.js:513` |
-| `[LATER n]` / `[AT hh:mm]` | `bridge.noteBubbleMore` → `followup.request` | 过 n 分钟 / 到点再叫醒一轮 | `lib/bridge.js:494` |
-| `[SKIP]` | —— | **已删除**，只剩发送前顺手剥掉（老回复残留） | `lib/bridge.js:466` |
+| `[LATER n]` | `bridge.noteBubbleMore` → `followup.request` | 过 n 分钟再叫醒一轮（**只支持分钟**，`[AT hh:mm]` 已砍） | `lib/bridge.js:494` |
+| `[SKIP]` | —— | **已删除**，只剩发送前顺手剥掉（老回复残留） | `lib/bridge.js:473` |
 
 闸门（防止自己半夜给自己排卡）：
 - `[LATER]` 只认「他 3 分钟内说过话」的那一轮，同轮 60 秒去重；
 - 抽卡轮（`origin === 'bubble'`）不算分；
-- `[HOLD]` 只认文本块里独立出现的标记。
+- **`[HOLD]` 现在是「正文里出现就按住」**（`/\[hold\]/i.test(text)`，`lib/bridge.js:554`），没有做「独立标记」判定 —— 也就是说她随口解释一句「这个我 [hold] 了」也会吞掉整轮。代码注释与实现不一致，**要改先想清楚**（会话里提这个词的概率很低，但确实是误伤风险）。
 
 ---
 
@@ -207,8 +225,9 @@ s = clamp(round(score/10 + (inbound ? inboundBonus : 0)), 0, 12)
 
 `lib/companion/cue.mjs`
 
-- `DEFAULT_CUE = { template, candidatesTitle, empty }`，模板里可用占位符：
-  `{{line}}`（这一轮的词 = 事件的 label）、`{{hint}}`（事件下自己填的补充）、`{{period}}`、`{{weight}}`、`{{count}}`、`{{quiet}}`、`{{candidates}}` 等（见 `PLACEHOLDERS`）。
+- `DEFAULT_CUE = { template, candidatesTitle, empty }`，模板里可用的 **11 个**占位符（见 `PLACEHOLDERS`）：
+  `{{mode}}` `{{period}}` `{{count}}` `{{ago}}` `{{who}}` **`{{w}}`** `{{line}}` `{{label}}` `{{hint}}` `{{candidates}}` `{{note}}`。
+  - `{{line}}` = 这一轮的词（事件的 label）；`{{hint}}` = 事件下面自己填的补充（没填就空）；`{{w}}` = 当前权重（不要写成 `{{weight}}`，不认）。
 - **固定尾注**由代码追加，用户改不掉：
   - `FIXED_FOOTER`：`不想发就写 [HOLD]，插件会替你吞掉。`
   - `TICK_FOOTER`：`本轮不用打分。`（只在抽卡轮）
@@ -224,23 +243,24 @@ s = clamp(round(score/10 + (inbound ? inboundBonus : 0)), 0, 12)
 
 `lib/companion/events.mjs`
 
-十槽默认份数（合计 100，`seedPool()` 填默认词；**label 默认全空 = 交用户填**）：
+十槽（`EVENT_POOL` 的 `label` 默认是**空串**；新建配置时 `seedPool()` 才把 `SEED_LABEL` 的词填进去；**开着的九槽合计 100 份**，十槽全加是 105 因为 `sing` 默认关）：
 
-| id | label 默认 | weight | bonus | adapter |
+| id | `SEED_LABEL` 填的词 | weight | bonus | adapter |
 |---|---|---|---|---|
-| `chat` | 说句话 | 24 | 3 | chat |
-| `video` | 去b站找个视频 | 18 | 5 | bili |
-| `meme` | 甩个表情 | 10 | 4 | — |
-| `image` | 找张图 | 10 | 4 | — |
-| `voice` | 发条语音 | 8 | 5 | — |
-| `web` | 上网看看 | 8 | 4 | — |
-| `joke` | 讲个笑话 | 8 | 4 | — |
-| `memory` | 翻旧账 | 6 | 4 | — |
-| `remind` | 提醒哥哥 | 8 | 8 | — |
-| `sing` | 唱首歌 | 5 | 6 | —（默认 `enabled:false`） |
+| `chat` | 聊天 | 24 | 3 | chat |
+| `video` | 发个视频 | 18 | 5 | bili |
+| `meme` | 发表情包 | 10 | 4 | meme |
+| `image` | 找张图 | 10 | 4 | image |
+| `voice` | 发个语音 | 8 | 5 | voice |
+| `web` | 上网看看 | 8 | 4 | web |
+| `joke` | 讲个笑话 | 8 | 4 | chat |
+| `memory` | 翻个旧账 | 6 | 4 | memory |
+| `remind` | 提醒我 | 8 | 8 | remind |
+| `sing` | 唱首歌 | 5 | 6 | sing（默认 `enabled:false`） |
 
 规则：
-- `drawEvent(pool)` 按份数加权抽；`isLive(e)` 要求 `enabled !== false` 且 `label` 非空。
+- `drawEvent(pool)` 按份数加权抽。
+- `isLive(e)` = `enabled !== false` **且 `weight > 0`** 且 `label` 非空（三个条件，少一个这个槽就是死的）。
 - **`mergePool` 里 weight 写 0 会回退成默认份数**（想禁用必须 `enabled:false`）——这是坑，别改。
 - 只有 `video` 有真「准备器」（`adapters/bili.mjs`），其余八槽**只递词**，怎么做由会话自己决定（这正是「普适化」的落点）。
 - `hint` 上限 80 字（`HINT_MAX`），只作补充说明，不写做法。
@@ -294,7 +314,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 群聊                          → groupPreset（默认 qq-group，无 shell/terminal/写文件）
 ```
 
-- `lib/chat.js` `roleOf(chatId, userId, policy)` 是唯一判据；`dmAllowed` / `groupAllowed` 在**每次投递前**都要复检（不是建会话时判一次）。
+- `lib/chat.js:49` 的 `classifyUserRole(userId, adminUsers)` 是「管理员 / 成员」的唯一判据；`dmAllowed` / `groupAllowed` 在**每次投递前**都要复检（不是建会话时判一次）。
 - **fail-closed**：预设解析不出来就 `throw blocked`（`blocked.presetBlocked = true`），**绝不静默退回完全权限**。`groupPreset` 留空也算解析失败。
 - `[群成员]` 前缀（`lib/chat.js` 的 `RESTRICTED_PREFIX`）加在群成员消息上，提示词里据此区分「他说的话」与「主人下的命令」。老别名 `[受限用户:仅问答]` 只作兼容剥离。
 - `POLICY_KEYS` 命中时，`setConfig` 会就地 `Object.assign(bridge.deps.policy, resolvePolicy(cfg))` —— 策略是 `apply()` 时算一次的常量，不重算就是「存上了不生效」。
@@ -358,12 +378,37 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 > 5 与 6 缺一个的后果：面板字段被当成「幽灵键」→ 宿主 `validatePatch` 整单拒收 → **这次保存一个键都没写进去**（真发生过，`dmRestricted`）。
 
-### 10.3 `@deepseek-ai/schemastery` 的坑
+### 10.3 配置面实测数字（0.5.24 基线，改完请重新数）
 
+| 面 | 数量 | 位置 |
+|---|---|---|
+| schema 顶层键 | **134** | `lib/index.js` 的 `Config` |
+| `config: {…}` 字面量 | 105 | `lib/index.js`（`ChatBridge` 构造参数） |
+| `getConfig()` 返回 | **85** | `lib/index.js` |
+| `setConfig` 白名单 | **85** | `lib/index.js`（与 getConfig 键集**完全相同**） |
+| 面板 `QQ_FIELDS` | **69** 字段 | `lib/companion/ext-settings.mjs` |
+| 设置页 `ALL_KEYS` | **31** 键 | `lib/settings-remote.js` |
+
+三类差集（审计时重跑一遍，有差异就是漏改）：
+
+- **面板有、setConfig 没有 = 0**（`test/core.test.mjs` 有一条静态断言钉着）
+- **setConfig 有、schema 没有 = 0**（`visionMaxTokens` 曾经就是这类，已补）
+- **schema 有、`config` 字面量没有 = 29**，其中：
+  - 2 个是改名别名：`outboundImageMaxBytes→maxImageBytes`、`inboundFileMaxBytes→maxInboundFileBytes`
+  - 1 个只活在 policy：`allowFrom`
+  - **真漏的 26 个**（都在 `config` 字面量里没有，代码却直接读 `deps.config.X` → 永远是 `undefined`，靠 schema 默认兜着）：
+    `mode` `host` `port` `url` `accessToken` `napcatAutoStart` `napcatAutoRestart` `napcatShowWindow`
+    `reconnectMaxAttempts` `inboundImageMaxPx` `imageMaxSize` `sttEnabled` `sttEngine` `sttCommand`
+    `sttArgs` `sttModel` `sttTimeoutMs` `actionAuditEnabled` `traceEnabled` `traceLevel` `recordInbound`
+    `inboxRedact` `injectEnabled` `injectDryRun` `injectIntervalMs` `logLevel`
+
+> 这 26 个里有一半是「读到 undefined 也能跑」（端口、token 走别处），但 `stt*`、`inject*`、`trace*` 这类**面板改了不生效**——要动它们先补齐字面量。
+
+### 10.4 `@deepseek-ai/schemastery` 的坑
 数组 schema **没有** `.optional()` / `.describe()` / `.int()`；用了就是插件 import 时崩、设置页整块消失。
 一律 `.default([])` / `.description()`。
 
-### 10.4 陪 伴配置的全局键
+### 10.5 陪伴配置的全局键
 
 `GLOBAL_KEYS`（`app.mjs`）是「整份配置上的键」（关键词、视频筛选、cue、followup 参数…）。
 `readConfigFromObject()` 按 `GLOBAL_KEYS` 全量写回 —— **新加全局键忘了登记，保存一次就被抹回默认**（踩过 11-08、11-10 两回）。
@@ -377,7 +422,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 | 文件 | 内容 | 滚动 |
 |---|---|---|
 | `config.json` | 陪伴配置（`enabled/dryRun/profiles/bindings/globals`） | 原子写 |
-| `state.json` | 每会话 bucket：`w / todayCount / lastSentAt / lastSpendAt / lastSpendOrigin / lastSettleAt / window / lastPicks / keywordCursor` | 原子写 |
+| `state.json` | 每会话 bucket：`w / lastRiseAt / lastTriggerAt / todayCount / dayKey / lastByEvent / window`（运行时另写 `lastSpendAt / lastSpendOrigin / lastSettleAt / lastPicks`） | 原子写 |
 | `scores.json` | 最近一次 `[SCORE]`（`{score, inbound, at, origin}`） | 原子写 |
 | `history.jsonl` | 每拍/每次开口记录 | 追加 |
 | `ledger.jsonl` | 积分流水（`spend/settle/rise/bonus/tick/reset`） | 8MB 滚到末 40000 行、留 60 天 |
@@ -389,6 +434,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 | `bili-seen.json` | B站 消息去重账本 | 原子写 |
 | `video-cache.json` | 看视频结论缓存（键含 `模型 + PROMPT_VER + 采样版本`） | 原子写 |
 | `bili/bili_credential.json` | B站 凭证（sessdata 等） | —— |
+| `bili-sent.json` | B站 动作去重（同一视频同一句话只发一次，`lib/bili-act.js`） | 原子写 |
 
 `$DSH_HOME/onebot/`：`settings.json`、`access-token.json`、`napcat-auto.json`、`qq-off.json`、`chatrolls.json`、`vision-cache.json`、`tools.json`（外部程序路径）。
 `$DSH_HOME/media/onebot/`：会话映射 `chat-sessions.json`、pins、退休名单。
@@ -397,7 +443,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 ## 12. HTTP 接口（`/api/bubble/*`，`lib/companion/app.mjs`）
 
-读：`/state` `/channel` `/probe` `/chats` `/sessions` `/ext` `/rolls` `/watch` `/ledger` `/videos` `/doctor` `/setup` `/setup/token` `/napcat` `/napcat/qr` `/napcat/auto` `/qq/off` `/cue` `/prompt` `/bili/login/poll` `/bili/who`
+读：`/state`（根路径 `/` 是同一条分支的别名）`/channel` `/probe` `/chats` `/sessions` `/ext` `/rolls` `/watch` `/ledger` `/videos` `/doctor` `/setup` `/setup/token` `/napcat` `/napcat/qr` `/napcat/auto` `/qq/off` `/cue` `/prompt` `/bili/login/poll` `/bili/who`
 写：`/config` `/run` `/reset` `/card` `/session` `/unretire` `/ext` `/ext/reveal` `/rolls` `/watch/run` `/videos/block` `/videos/unblock` `/cue` `/cue/preview` `/client-log` `/napcat/start` `/napcat/restart` `/napcat/auto` `/qq/off` `/bili/login/start`
 
 约定：
@@ -431,20 +477,27 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 **已知未修（留给下一轮）**
 
-1. `lib/inbound.js:431` 关键词冷却在「命令 / 限流 / 空内容」判定**之前**消费 —— 被丢弃的消息也吃冷却。
+1. `lib/inbound.js:431` 的 `markKeywordReply` 在「限流 / 空内容」判定**之前**消费关键词冷却（`:405-424` 的「随意聊聊」开关窗命令会提前 return，那几条不吃）—— 被限流丢掉的消息也吃冷却。
 2. 图额度按「条」不按「轮」：连发 N 条各带 1 图，等于 N 张；`recentImageNote` 还能再白看 1 张。
 3. `setConfig` 不做 schema 校验：字符串 / `NaN` 直接进内存（不崩，但会静默失效）。
 4. `queueNoticeEnabled` 是死键（schema / 面板 / 代码三面皆无）。
-5. `mergePool` 的 `label` 语义与注释相反（注释说「空 = 用默认」，实际空就是空）。
-6. `/state` 的 `cfg` 仍带 4 个已废弃的 `followup*` 键。
-7. `POST /config` 每次都 `restart()` 重排 ticker（频率不高，但有抖动）。
-8. `/setup/token` 回明文令牌；`sameOriginOk` 在**没有 Origin 头**时直接放行。
-9. `settings.json` 永久压过 yml，且面板没有「恢复 yml 值 / 删掉这个键」的入口。
-10. `readBody` 收到坏 JSON 静默当 `{}`：`POST /cue` 会把话头重置成默认并落盘；`/ext` 空 body 回 `ok:true`。
-11. `POST /config` 对 `body.profiles` 零校验：`{"profiles": []}` 照收 → 下次读配置回默认分支、绑定全指向第一个 profile。
-12. `videoVision*` 与 `vision*` 两套视觉配置是**有意分开**的（单图 3000 token / 40 秒；宫格 8000 token / 180 秒），但字段多，容易配漏。
-13. `lib/client.js:1316` 的 `loadExt` catch 是空的（B站 页「看视频」组可能显示「读不到这组设置：undefined」）。
-14. `ChatRollsCard` 乐观更新，失败不回滚。
+5. `POST /config` 每次都 `restart()` 重排 ticker（频率不高，但有抖动）。
+6. `/setup/token` 回明文令牌；`sameOriginOk` 在**没有 Origin 头**时直接放行。
+7. `settings.json` 永久压过 yml，且面板没有「恢复 yml 值 / 删掉这个键」的入口。
+8. `lib/companion/app.mjs` 的 `/cue/preview` 没走 `rejectBadJson()`，坏 JSON 掉进通用 catch（不会误写盘，但 400 文案不对）。
+9. `videoVision*` 与 `vision*` 两套视觉配置是**有意分开**的（单图 3000 token / 40 秒；宫格 8000 token / 180 秒），但字段 14 个，容易配漏。
+10. `ChatRollsCard` 乐观更新，失败不回滚。
+11. `[HOLD]` 是「出现即按住」，没有「独立标记」判定（见 §5）。
+12. `lib/settings-remote.js:139` 的注释写「29 键」，实际 `ALL_KEYS` 是 31 键（`dmRestricted` / `restrictedPreset` 后加时没改注释）。
+13. `[LATER]` 的闸门要求「他 3 分钟内说过话」，但 `noteBubbleMore` 在 `bubbleHoldsTurn` 里也会被调用（`[HOLD]` 那一轮不调）—— 逻辑清楚，但改这块时容易把闸门绕过去。
+
+**已修、别再当成 bug 报**
+
+- `mergePool` 的 label 语义（现在注释与行为一致：空就是空）
+- `readBody` 坏 JSON 静默成功（现在 `rejectBadJson()` 返回 400，`/config`、`/ext`、`/cue` 都调了）
+- `POST /config` 吃空 `profiles`（现在先过滤空项，空了直接忽略）
+- `loadExt` 空 catch（现在会把错误画成错误卡）
+- `[AT hh:mm]` 定时写法（已砍，只留 `[LATER n]`）
 
 **刻意取舍（不是 bug，别改）**
 
@@ -509,7 +562,7 @@ curl -s http://127.0.0.1:<GUI端口>/api/bubble/ext
 - [ ] 轮询会不会清掉用户正在输入的内容？
 
 **E. 普适化**
-- [ ] 全库 grep 本机痕迹：盘符路径、QQ 号、`1094335744`、`蓝色大肥鱼`、具体表情包文件名、别人的账号名。
+- [ ] 全库 grep 本机痕迹：盘符路径、真实 QQ 号、本机目录名、具体表情包文件名、别人的账号名（`scripts/guard-publish.mjs` 会扫一部分，扫不到的靠人看）。
 - [ ] 提示词里有没有「只有本机才有」的东西（记忆路径、点歌、嗓子、群里写文件）？
 
 ---
