@@ -486,11 +486,11 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 1. `lib/inbound.js:431` 的 `markKeywordReply` 在「限流 / 空内容」判定**之前**消费关键词冷却（`:405-424` 的「随意聊聊」开关窗命令会提前 return，那几条不吃）—— 被限流丢掉的消息也吃冷却。
 2. 图额度按「条」不按「轮」：连发 N 条各带 1 图，等于 N 张；`recentImageNote` 还能再白看 1 张。
-3. `setConfig` 不做 schema 校验：字符串 / `NaN` 直接进内存（不崩，但会静默失效）。
+3. `setConfig` 写内存前**没做类型校验**（字符串 / `NaN` 会进内存、静默失效）；读侧（`apply` 覆盖 `settings.json`）已经逐键过 schema 并丢弃坏键。
 4. `queueNoticeEnabled` 是死键（schema / 面板 / 代码三面皆无）。
 5. `POST /config` 每次都 `restart()` 重排 ticker（频率不高，但有抖动）。
-6. `/setup/token` 回明文令牌；`sameOriginOk` 在**没有 Origin 头**时直接放行。
-7. `settings.json` 永久压过 yml，且面板没有「恢复 yml 值 / 删掉这个键」的入口。
+6. `/setup/token` 回明文令牌（同源才给）。`sameOriginOk` 已收紧（带 Origin 必须同 host；没 Origin 认 `sec-fetch-site`；都没有要带 `x-bubble-token`）。
+7. `settings.json` 压过 yml 是设计（面板要能覆盖），11-14 补了可见性与出口：启动 warn「哪些键被压着」+ 设置页「面板存的值压着配置文件」卡（`GET /settings`、`POST /settings/clear`）。
 8. `lib/companion/app.mjs` 的 `/cue/preview` 没走 `rejectBadJson()`，坏 JSON 掉进通用 catch（不会误写盘，但 400 文案不对）。
 9. `videoVision*` 与 `vision*` 两套视觉配置是**有意分开**的（单图 3000 token / 40 秒；宫格 8000 token / 180 秒），但字段 14 个，容易配漏。
 10. `ChatRollsCard` 乐观更新，失败不回滚。
@@ -505,6 +505,13 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 - `POST /config` 吃空 `profiles`（现在先过滤空项，空了直接忽略）
 - `loadExt` 空 catch（现在会把错误画成错误卡）
 - `[AT hh:mm]` 定时写法（已砍，只留 `[LATER n]`）
+- **0.5.26（按外部《功能体检_2026-11-14》修的 26 处，注释里都写了「11-14 体检 编号」）**：
+  - 安全：排队三队列抛错回滚 + `spliced` 摘队头 + `turnRoleTtlMs` 丢过期队头（A1）；`/api/bubble` 写路由验 Origin / `sec-fetch-site` / `x-bubble-token`（A2）；子代理不能借主人身份外发（A3，`resolveChat` / `requireAdminCaller` 走 `callerChatOf`）；`groupPolicy` 面板默认与运行期统一成 `allowlist`（A4）
+  - 静默失败：投递失败不再记 window/今日数/lastTriggerAt（B1）；来料/追聊早退前核销分数（B2）；B站 监看同分钟不重启（B3）；收件箱写失败回 `inbox-failed`（B4）；`[HOLD]` 只按住她想说的话，`{system:true}` 的提示照发（B5）；`/retry` 只重发他说的那句（B6）；`proactive` 来源贯穿到结算（B7）；限流提前到 I/O 之前（B8）
+  - 体验：主动窗口内不再切块（C1）；`settings.json` 逐键校验 + 覆盖清单 + 清除入口（C2/C3）；预设写错一律 fail-closed（C5）；本地会话补 workspace 围栏根（C6）；开「随意聊聊」不再吞原话（C7）；防抖合并只留一份包装（C8，`mergeWrappedParts`）；非管理员命令走限流（C9）；批量 `/run` 回 `ok/sent`（C10）
+  - 卫生：`/card` 空参 400（D1）；`/reset` 连分数一起清（D2）；`bubble/resets.json` 让在飞的一拍作废（D3）；写盘返回值接上（D4）；删 `vitest`（D5）；`guard-publish` 扫描集从 `package.json.files` 推导（D7）；注释 29→31 键（D8）
+  - C4 按建议**只提示不换人格**：老会话 resume 预设与当前配置不一致时 warn 一次（要换请 `/new`）
+
 - **0.5.25（按冷审计修的 11 条，都补了注释「11-14：…」说明为什么）**：
   - 追聊撞上 `busy` / `quiet` 就永久蒸发 → 按原因重排（`RETRY_MS`）、最多 12 次
   - 关掉再打开丢排程 → `restart()` 的开启分支补 `followup.restore()`，`restore()` 幂等
