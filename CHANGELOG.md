@@ -1,4 +1,12 @@
 # 更新日志
+## 0.5.22 — 2026-11-14
+
+「读的配置从来没透传」这一类 bug 的修法与自查工具（哥哥 m23792「检查一遍有没有bug」）。
+
+- 真 bug：`/api/bubble/state` 的 `access.allowFrom` 一直读 `bridge.deps.config.allowFrom`，而 `allowFrom` 是 `resolvePolicy()` 算出来的，config 字面量里根本没有这个键 → 面板的「私聊白名单」永远显示 0 个、`dmAllowCount` 恒为 0。改成先读 `policy.allowFrom`，读不到再退回 config。
+- `lib/bridge.js` 的 `mediaSendRoots` 传 `mediaDir` 时改用 `this.deps.media?.dir`（媒体库自己的真实目录），config 里那个同名键只是顺带透传。
+- 这次同类的第二处（`mediaDir`）说明「配置键在字面量里写着、读的时候却用另一路」很容易漏：判断「有没有透传」不能只认 `key:`，还要认 Javascript 的简写 `key,`。
+
 ## 0.5.21 — 2026-11-14
 
 把「概率关键词」整套删掉（哥哥 m23761「不要概率关键词了，感觉bug很多」）。
