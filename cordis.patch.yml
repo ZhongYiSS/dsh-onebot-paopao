@@ -22,6 +22,9 @@
 #     name: /vol2/@appshare/Harness/dsh-plugins/dsh-onebot/lib/index.js
 #   - id: onebot-settings-remote
 #     name: /vol2/@appshare/Harness/dsh-plugins/dsh-onebot/lib/settings-remote.js
+#   - id: preset-qq-group            # 群聊受限预设，别漏！漏了新群会话会被拒绝开会话
+#     name: '@deepseek-ai/dsh-agent-preset'
+#     config: { id: qq-group, ... }  # 内容同下面那份 insert
 # （相对名 ./ 开头会按宿主 anchorInsertedPluginNames 锚定到 patch 文件所在目录，
 # 绝对路径 name 不受锚定影响。）
 - insert:

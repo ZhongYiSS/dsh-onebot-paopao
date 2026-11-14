@@ -155,10 +155,14 @@ dsh plugin --profile web add dsh-onebot-paopao
    运行期 peer 统一由宿主解析层完成：插件 import 的 `@deepseek-ai/*`
    只要声明在该包 peerDependencies 里，就会被宿主拦截并重定向到宿主安装树的同一实例，
    无需任何 npm override。
-2. 把包内 `cordis.patch.yml` 模板的两行 insert 合并进 profile 层
+2. 把包内 `cordis.patch.yml` 模板的**三条** insert 合并进 profile 层
    `<DSH_HOME>/profiles/web/cordis.patch.yml`：主条目 `name: 'dsh-onebot-paopao'`，
-   host-plane 行 `name: 'dsh-onebot-paopao/settings-remote'`；config 覆盖须挂
-   patch 顶层同 id 行（详见模板头注释）。
+   host-plane 行 `name: 'dsh-onebot-paopao/settings-remote'`，以及**群聊受限预设**
+   `id: preset-qq-group`（`name: '@deepseek-ai/dsh-agent-preset'`，`config.id: qq-group`）；
+   config 覆盖须挂 patch 顶层同 id 行（详见模板头注释）。
+   ——第三条不能省：群聊默认挂受限预设，预设解析不了时插件会**拒绝开这个群会话**
+   （日志/群里提示「群聊预设 qq-group 解析不了…」），这是有意的 fail-closed，
+   宁可不回消息，也不让群里的人拿到完全权限。
 3. **不要**在 profile 的 package.json 手写任何 `@deepseek-ai/*` 依赖——手写副本会
    覆盖宿主安装树成为拦截目标，造成版本错位双包。
 4. 若安装被兼容门拒绝（dsh 版本不在 peer 范围内），按官方口径用
@@ -202,6 +206,10 @@ DSH_ROOT=<fnOS 应用数据目录>/node_modules ./scripts/build.sh
         adminUsers: ['你的QQ号']   # 必配：至少一个管理员，否则私聊/斜杠命令不可用
 ```
 
+> ⚠️ **群聊要配预设**：`groupPreset` 默认 `qq-group`，留空或解析不了都会让群会话被拒绝
+> （2026-11-14 起群聊也是 fail-closed）；私聊里「主人/管理员」走完全权限预设，白名单里的
+> 其他人走受限预设（`restrictedPreset`，留空沿用 `groupPreset`），可用 `dmRestricted: false` 关掉分级。
+>
 > ⚠️ **首次配置必须设置至少一个管理员**（`adminUsers` 或环境变量 `ONEBOT_ALLOWED_USERS`）：
 > `dmPolicy: open`（默认）只允许管理员私聊，斜杠命令也仅管理员可用；不设置则无人能对话。
 > 开发调试可临时 `allowAllUsers: true`（或 `ONEBOT_ALLOW_ALL_USERS=true`）放行所有用户。
