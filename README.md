@@ -58,6 +58,8 @@ dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
 ```
 
 > 上游仓库 `dsh-onebot` 里有一版可交互架构图（`docs/`）；本 fork 没带图片资源，就不放失效链接了。
+>
+> **接手 / 审计先读 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**：模块地图、三条运行时链路、权重模型、标记协议、配置六处清单、数据文件、接口表、已知薄弱点与审计清单，都在那一份里。改代码时顺手改它，别让它过期。
 
 ## 功能
 
