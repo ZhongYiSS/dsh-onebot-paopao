@@ -614,3 +614,23 @@ curl -s http://127.0.0.1:<GUI端口>/api/bubble/ext
 ---
 
 *最后更新：0.5.24（2026-11-14）。改代码时顺手改这份文档，别让它过期。*
+
+## §17 QQ / NapCat 停更后的处境（2026-11-14）
+
+**事实**：NapCat 上游仓库已删（`api.github.com/repos/NapNeko/NapCatQQ` → 404），本地副本 `NapCat 目录（本机为 `<napcatDir>`）`（v4.18.41）是最后一份，已整份备份到 `本机备份目录下的 NapCat.Shell-20261114`。
+
+**为什么不能自己补版本号**：`napcat.mjs` 里每个 QQ 构建对应一份**内存偏移表**
+
+```
+"9.9.36-53644-x64": { send: "C3EE2F", recv: "24A6355" },
+```
+
+`send`/`recv` 是 QQ 进程里收发函数的地址，QQ 重新编译就会变。所以「往表里加一行 9.9.37」不会工作——要逆向重算偏移。
+
+**本机处置**：
+- `QQ 安装目录\versions\config.json` 的 `curVersion` 钉回 `9.9.33-52230`，并加了拒绝写入的 ACL（`icacls … /deny "user:(WD,AD,WEA,WA)"`，注意**别用 `(W)`**——`(W)` 含 `FILE_READ_ATTRIBUTES`，会让文件连读都打不开）。
+- 备份：`本机备份目录下的 QQNT-versions-config-20261114.json`（原始 config.json）、`NapCat.Shell-20261114\`。
+
+**代码侧（0.5.31）**：`lib/napcat.js` 的 `supportedQqVersions` / `qqVersionInfo` / `judgeQqVersion` / `qqVersionHint`；`lib/index.js` 的 `qqInstallDir()`（注册表）与 `qqVersionState()`，挂载时打日志、`napcatStatus` 回 `qqVersion`；面板「NapCat / QQ 登录」卡多一行。判定三态：`true` 认得 / `false` 不认（附照做建议）/ `null` 看不出来（不吓人）。
+
+**以后真要换后端**：插件协议层只说 OneBot v11（反连 WS 8643），所以换 SnowLuma / LLOneBot 主要是「启动、二维码、重启、进程探测」这几块 NapCat 专有逻辑要不要抽成 provider。候选见 CHANGELOG 与记忆。
