@@ -484,17 +484,17 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 **已知未修（留给下一轮）**
 
-1. `lib/inbound.js:431` 的 `markKeywordReply` 在「限流 / 空内容」判定**之前**消费关键词冷却（`:405-424` 的「随意聊聊」开关窗命令会提前 return，那几条不吃）—— 被限流丢掉的消息也吃冷却。
-2. 图额度按「条」不按「轮」：连发 N 条各带 1 图，等于 N 张；`recentImageNote` 还能再白看 1 张。
-3. `setConfig` 写内存前**没做类型校验**（字符串 / `NaN` 会进内存、静默失效）；读侧（`apply` 覆盖 `settings.json`）已经逐键过 schema 并丢弃坏键。
-4. `queueNoticeEnabled` 是死键（schema / 面板 / 代码三面皆无）。
-5. `POST /config` 每次都 `restart()` 重排 ticker（频率不高，但有抖动）。
+1. ~~关键词冷却吃在丢弃之前~~（0.5.27 已把 `markKeywordReply` 挪到「真要投递」之后）
+2. ~~图额度按条不按轮~~（0.5.27 起按 `debounceMaxMs × 3`（最少 60 秒）的短窗口记已用额度，后面的消息减掉再放行）
+3. ~~`setConfig` 不做类型校验~~（0.5.27 起与 `settings.json` 覆盖共用 `settingTypeOk()`：字段 schema 跑得通 + 种类与默认值一致 + 数字有限）
+4. ~~`queueNoticeEnabled` 是死键~~（0.5.27 补进 schema，默认关）。
+5. ~~`POST /config` 每次都 `restart()`~~（0.5.27 起只有「节拍签名」变了才重排：开关 / `tickMinutes` / 绑定集合 / B站 监看）。
 6. `/setup/token` 回明文令牌（同源才给）。`sameOriginOk` 已收紧（带 Origin 必须同 host；没 Origin 认 `sec-fetch-site`；都没有要带 `x-bubble-token`）。
 7. `settings.json` 压过 yml 是设计（面板要能覆盖），11-14 补了可见性与出口：启动 warn「哪些键被压着」+ 设置页「面板存的值压着配置文件」卡（`GET /settings`、`POST /settings/clear`）。
-8. `lib/companion/app.mjs` 的 `/cue/preview` 没走 `rejectBadJson()`，坏 JSON 掉进通用 catch（不会误写盘，但 400 文案不对）。
+8. ~~`/cue/preview` 不走 `rejectBadJson()`~~（0.5.27 已接上，坏 JSON 回 400）。
 9. `videoVision*` 与 `vision*` 两套视觉配置是**有意分开**的（单图 3000 token / 40 秒；宫格 8000 token / 180 秒），但字段 14 个，容易配漏。
-10. `ChatRollsCard` 乐观更新，失败不回滚。
-11. `[HOLD]` 是「出现即按住」，没有「独立标记」判定（见 §5）。
+10. ~~`ChatRollsCard` 乐观更新，失败不回滚~~（0.5.27 已在失败时写回旧的那份）。
+11. ~~`[HOLD]` 是「出现即按住」~~（0.5.27 起 `lib/markers.js` 的 `hasHold()` 只认「独立成行 / 在结尾」，正文里提一句不按住。见 §5）。
 12. ~~`lib/settings-remote.js:139` 的注释写「29 键」，实际 `ALL_KEYS` 是 31 键~~（11-14 已统一成 31 键；`queueNoticeEnabled` 是历史开关，只有 `lib/bridge.js` 读、schema 里没有）。
 13. `[LATER]` 的闸门要求「他 3 分钟内说过话」，但 `noteBubbleMore` 在 `bubbleHoldsTurn` 里也会被调用（`[HOLD]` 那一轮不调）—— 逻辑清楚，但改这块时容易把闸门绕过去。
 
@@ -505,6 +505,8 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 - `POST /config` 吃空 `profiles`（现在先过滤空项，空了直接忽略）
 - `loadExt` 空 catch（现在会把错误画成错误卡）
 - `[AT hh:mm]` 定时写法（已砍，只留 `[LATER n]`）
+- **0.5.27（清 §14 剩的小毛刺）**：设置覆盖逐键校验改用 `settingTypeOk()`（0.5.26 用 `Config.safeParse` 是个错误——宿主 schemastery 没这个方法，导致 `settings.json` 全被丢弃）；关键词冷却挪到投递之后；`setConfig` 加类型校验；`[HOLD]` 只认独立成行/结尾；图额度按短窗口扣；`/config` 只在节拍签名变化时 `restart()`；`/cue/preview` 坏 JSON 回 400；`ChatRollsCard` 失败回滚；`queueNoticeEnabled` 补进 schema。
+
 - **0.5.26（按外部《功能体检_2026-11-14》修的 26 处，注释里都写了「11-14 体检 编号」）**：
   - 安全：排队三队列抛错回滚 + `spliced` 摘队头 + `turnRoleTtlMs` 丢过期队头（A1）；`/api/bubble` 写路由验 Origin / `sec-fetch-site` / `x-bubble-token`（A2）；子代理不能借主人身份外发（A3，`resolveChat` / `requireAdminCaller` 走 `callerChatOf`）；`groupPolicy` 面板默认与运行期统一成 `allowlist`（A4）
   - 静默失败：投递失败不再记 window/今日数/lastTriggerAt（B1）；来料/追聊早退前核销分数（B2）；B站 监看同分钟不重启（B3）；收件箱写失败回 `inbox-failed`（B4）；`[HOLD]` 只按住她想说的话，`{system:true}` 的提示照发（B5）；`/retry` 只重发他说的那句（B6）；`proactive` 来源贯穿到结算（B7）；限流提前到 I/O 之前（B8）
