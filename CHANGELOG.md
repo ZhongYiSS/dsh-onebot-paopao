@@ -1,3 +1,11 @@
+## 0.5.30 — 2026-11-14
+
+把「面板读不到状态」这类问题从「靠猜」变成「看得见」：
+
+- `lib/companion/origin.mjs`：判定原则改成**只挡明确的公网来源**（真实 http(s) 且主机不是本机），其余一律放行 —— 没有 Origin（同源 GET、curl）、`Origin: null`（同源沙箱）、`dsh-app:`/`app:`/`file:` 等本地壳、同 Host、回环/私网地址都算自己人。公网页面仍然拒，`Origin: null` 且 `Sec-Fetch-Site: cross-site` 也拒。
+- 403 的响应体带上 `why` 和 `seen`（真实看到的 Origin / Host / Sec-Fetch-Site / Referer），面板上直接显示「面板是从 X 发来的，宿主在 Y」，不用再来回问。
+- `lib/client.js`：403 不再一律显示「只接受本机同源」，改成显示服务端那句话；任何 4xx/5xx 都会把失败 URL 写进 `C:Usershb109.dsh/bubble/client-errors.log`（`where: "http 403"`）。
+
 ## 0.5.29 — 2026-11-14
 
 修 0.5.26 那条 CSRF 加固把面板自己挡在门外的错：
