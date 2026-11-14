@@ -162,6 +162,15 @@ normalizeOneBot11 → duplicated()（去重，dedupWindowSeconds）
 
 出站（`lib/bridge.js` `sendToChat`）：`noteBubbleScore`（收 `[SCORE]`）→ `chat.bubbleHold` 判 `[HOLD]`（整轮不发，返回 `[]`）→ 剥 `[HOLD]/[SKIP]/[LATER n]/[SCORE n]` → `noteBubbleSent`（记账）→ `outbound.sendToChat`（分句/分条/卡片）。
 
+**「随意聊聊」两种开关**（`lib/inbound.js`）：
+
+| 形态 | 存哪 | 活多久 | 怎么开 | 怎么关 |
+| --- | --- | --- | --- | --- |
+| 临时窗口 | 内存 `openChatUntil: Map<chatId, 到期 ms>` + `openChatTimers` | 到点自动清窗并 `nudgeSelf` 一句收尾；**重启即失效** | 管理员在群里说「随意聊聊 / 随便聊聊」，可带时长（受 `openChatMaxMs` 上限，默认 20 分钟），不带就用 `openChatDefaultMs`（10 分钟） | 说「关闭 / 停止 随意聊聊」，或到点 |
+| 常驻名单 | 配置 `openChatGroups`（一行一个群号） | 永久（跟配置文件走） | 设置页「主动 → 一直随意聊的群」填群号 | 设置页删掉群号；**群里说「停止随意聊聊」对它不生效**（只记一行日志） |
+
+判据只有一个入口 `openChatActive(chatId)`：先查 `permanentOpenChat(chatId)`（常驻恒 true），再比 `openChatUntil`。常驻群调 `startOpenChat` 会直接返回 `0`（不开窗、不挂计时器），所以不存在「常驻群还残留一个到点收尾的 timer」这种事。窗口只影响**接不接这句话**（`requireMention` 那关），限流（`rateLimitPerMinute`，默认 30 条/分钟/群）照常生效。
+
 ---
 
 ## 4. 权重模型（数学定义）

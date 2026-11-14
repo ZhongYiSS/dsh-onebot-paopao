@@ -1,3 +1,12 @@
+# 0.5.33 — 2026-11-15
+
+- 新增 `openChatGroups`（设置页「主动 → 一直随意聊的群」）：名单里的群**恒开随意聊**——每条消息都接、不受 `openChatMaxMs` 限制、没有到点收尾、重启后照样开着。一行一个群号，纯群号与 `group:xxx` 两种写法都认，空白项跳过。
+- 判据收口在 `openChatActive(chatId)`：先查常驻名单，再比临时窗口。常驻群调 `startOpenChat` 直接返回 `0`（不开窗、不挂计时器），所以不会残留一个「到点收尾」的矛盾状态。
+- 常驻群里说「关闭 / 停止 随意聊聊」**不生效**（只记一行日志）——要关得在设置里把群号删掉，免得出现「说了停、其实还在接」。
+- 顺带修：`setQqOff` 打开 QQ 总开关时调 `autoFlags()` 会 `ReferenceError: autoFlags is not defined`（运行中的旧代码里那个绑定取不到），改成 try/catch + 按 `config.napcatAutoStart` 兜底。
+- 新增 `test/openchat.test.mjs` 6 条（名单两种写法、没配名单时行为不变、常驻不开窗、普通群仍受 20 分钟上限）。测试 174 → **180 绿**。
+- `docs/ARCHITECTURE.md` §3.4 补一张「临时窗口 vs 常驻名单」对照表。
+
 # 0.5.32 — 2026-11-14
 
 - 加 `qqDirFromLauncher(napcatDir)`：NapCat 目录下有 `QQPath.txt` 时，版本自检读那台 QQ，而不是永远查注册表里的默认安装。**没有这个文件就照旧**（本机已停用，文件改名 `.off`）。
