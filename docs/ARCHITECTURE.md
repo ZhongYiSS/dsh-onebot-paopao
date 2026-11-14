@@ -625,7 +625,7 @@ curl -s http://127.0.0.1:<GUI端口>/api/bubble/ext
 "9.9.36-53644-x64": { send: "C3EE2F", recv: "24A6355" },
 ```
 
-`send`/`recv` 是 QQ 进程里收发函数的地址，QQ 重新编译就会变。所以「往表里加一行 9.9.37」不会工作——要逆向重算偏移。
+`send`/`recv` 是 QQ 进程里收发函数的地址，QQ 重新编译就会变。所以「往表里加一行 9.9.37」不一定工作——偏移得重新逆向；表里没有的版本一律叫「未验证版本」。
 
 **本机处置**：
 - `QQ 安装目录\versions\config.json` 的 `curVersion` 钉回 `9.9.33-52230`，并加了拒绝写入的 ACL（`icacls … /deny "user:(WD,AD,WEA,WA)"`，注意**别用 `(W)`**——`(W)` 含 `FILE_READ_ATTRIBUTES`，会让文件连读都打不开）。

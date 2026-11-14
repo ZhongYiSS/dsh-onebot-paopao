@@ -2,7 +2,7 @@
 
 NapCat 上游删库、不再跟着 QQ 发版之后的**保险**：让「QQ 版本对不上」这件事从「悄悄连不上」变成「面板上写着为什么」。
 
-背景：NapCat 每个 QQ 构建靠一份内存偏移表工作（`napcat.mjs` 里 `"9.9.36-53644-x64": { send: "C3EE2F", recv: "24A6355" }`），QQ 自更新到表里没有的构建，注入必挂——而且没有任何提示。
+背景：NapCat 每个 QQ 构建靠一份内存偏移表工作（`napcat.mjs` 里 `"9.9.36-53644-x64": { send: "C3EE2F", recv: "24A6355" }`），QQ 自更新到表里没有的构建，就可能注入失败——而且没有任何提示。表外版本一律按「未验证」表述，不吓人。
 
 - `lib/napcat.js` 新增四个纯函数：`supportedQqVersions(napcatDir)`（从 `napcat.mjs` 扒出认得的构建，按 mtime 缓存）、`qqVersionInfo(qqDir)`（读 QQ 的 `versions/config.json`）、`judgeQqVersion(cur, list)`（`ok` 为 `true/false/null`，`null` = 看不出，附 `newer` 方向）、`qqVersionHint(state)`（一句能照做的人话）。两边写法不同（QQ 是 `9.9.33-52230`，NapCat 表里是 `9.9.33-52230-x64`），比较前统一抹后缀。
 - `lib/index.js`：`qqInstallDir()` 从注册表 UninstallString 问 QQ 安装目录（和 `launcher.bat` 同一个来路，问不到回空串，不猜盘符）；`qqVersionState(napcatDir)` 合成一份状态；挂载时打一条日志（认得 → info，不认 → warn 带照做建议）；`napcatStatus` 多回一个 `qqVersion` 字段。
