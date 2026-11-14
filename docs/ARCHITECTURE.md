@@ -539,7 +539,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 ```bash
 cd D:/AI/聊天/dsh-onebot
-npm test                        # 145 条
+npm test                        # 150 条
 node scripts/guard-publish.mjs  # 发布前检查（本机痕迹、工具清单、依赖声明）
 node bin/doctor.mjs             # 环境体检（node/ws/canvas/fontkit/ffmpeg/bili/vision/napcat）
 ```
@@ -563,31 +563,42 @@ curl -s http://127.0.0.1:<GUI端口>/api/bubble/ext
 
 ## 16. 审计清单（建议按这个顺序过）
 
-**A. 陪伴核心**
+### 16.0 直接贴给另一个会话（只读审计用）
+
+> 你是只读审计员。项目在 `D:/AI/聊天/dsh-onebot`（DSH 插件「泡泡」，把一个 QQ 通道和一个陪伴模块合成一体）。
+> 先读 `docs/ARCHITECTURE.md`（这份），再按 §16 的 A–E 过一遍代码。**只读，不要改文件、不要提交、不要重启**。
+> 具体要求：
+> 1. 每条发现写清「文件:行号 + 现在的写法 + 为什么是问题 + 什么条件下会炸 + 建议怎么改」，能复现的给出复现步骤。
+> 2. 分 P0（能丢数据 / 越权 / 能把自己的配置搞坏）/ P1（功能静默失效、该发的没发）/ P2（体验、文案、边界）。
+> 3. 已经被记在 §14「已修」里的不要重复报；觉得那条修得不彻底，单独说明。
+> 4. 重点怀疑顺序：并发写同一份 JSON（`state/inbox/tick/ledger`）、`origin` 传递链、`floor`/`base` 传参、预设解析的 fail-closed、发文件围栏的绕过面、面板字段与 `setConfig` 白名单的一致性。
+> 5. 结尾给一张表：编号 / 级别 / 文件:行 / 一句话。别写客套话。
+
+### A. 陪伴核心
 - [ ] `tick.mjs` 的十步顺序有没有被改动？`merge()` 是否真的只写增量？
 - [ ] `weight.mjs` 的 `floor` 有没有在每条路径上传下去？（少传 = 日档 -50 被抬成 -20）
 - [ ] `turn/end` 的 `spend` 与 `settle` 是否都用同一个 `base`？`fresh` 判据（24h 且新于 `lastSettleAt`）有没有被绕过？
 - [ ] `origin` 一路有没有被折成 `bubble`？（`deliver` → `dispatch` → `bridge` → `turn`）
 - [ ] `inbox` / `followup` 的特例有没有漏（来料不动账、追聊不扣不结、抽卡不吃分）？
 
-**B. 配置面**
+### B. 配置面
 - [ ] 新增键是否六处齐全（见 §10.2）？跑 `npm test` 里那条「面板字段 ⊆ setConfig 白名单」。
 - [ ] `GLOBAL_KEYS` 是否包含所有「整份配置上的键」？
 - [ ] 有没有键是「面板能改、服务端不认」或「服务端读、面板写不进」？
 
-**C. 权限与围栏**
+### C. 权限与围栏
 - [ ] 每个写操作工具是否都过了 `requireAdminCaller` / `isAdminChat`？
 - [ ] `resolveChat` 是否校验「谁在发」？
 - [ ] 预设解析失败是否 fail-closed？`groupPreset`/`restrictedPreset` 留空是否也算失败？
 - [ ] 硬拒清单能不能被 `..`、符号链接、大小写、UNC 路径绕过？
 - [ ] 报错信息会不会泄露目录内容？
 
-**D. 界面**
+### D. 界面
 - [ ] 有没有「数据为空就整块不渲染」的地方？
 - [ ] 每个 `jget/jpost` 是否都有对应路由、失败是否显示原因？
 - [ ] 轮询会不会清掉用户正在输入的内容？
 
-**E. 普适化**
+### E. 普适化
 - [ ] 全库 grep 本机痕迹：盘符路径、真实 QQ 号、本机目录名、具体表情包文件名、别人的账号名（`scripts/guard-publish.mjs` 会扫一部分，扫不到的靠人看）。
 - [ ] 提示词里有没有「只有本机才有」的东西（记忆路径、点歌、嗓子、群里写文件）？
 
