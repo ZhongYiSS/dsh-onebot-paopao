@@ -18,9 +18,27 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-/** 会随包发布的内容（与 package.json 的 `files` 对齐的保守版）。 */
-const PUBLISH_DIRS = ['lib', 'scripts'];
-const PUBLISH_FILES = ['package.json', 'cordis.patch.yml', 'README.md', 'README.en.md', 'LICENSE'];
+/**
+ * 会随包发布的内容：11-14 体检 D7 之前这里是手抄的保守版（lib + scripts），
+ * 而 package.json 的 files 还包含 bin/、assets/、screenshots.json 等 —— 守卫结构上管不到。
+ * 现在从 package.json 的 files 推导，另加「总要扫」的几个根文件（README/LICENSE 之类）。
+ */
+const PUBLISH_DIRS = new Set(['lib', 'scripts']);
+const PUBLISH_FILES = new Set(['package.json', 'cordis.patch.yml', 'README.md', 'README.en.md', 'LICENSE']);
+try {
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  for (const entry of Array.isArray(pkg.files) ? pkg.files : []) {
+    const name = String(entry).trim();
+    if (name === '' || name.startsWith('!')) continue;
+    const abs = join(ROOT, name);
+    let isDir = false;
+    try { isDir = statSync(abs).isDirectory(); } catch { isDir = !/\.[a-z0-9]+$/i.test(name); }
+    if (isDir) PUBLISH_DIRS.add(name.replace(/\/+$/, ''));
+    else PUBLISH_FILES.add(name);
+  }
+} catch {
+  // 读不到 package.json 就按保守版扫（不至于因为推导失败就放行）
+}
 
 /** 本机私有痕迹：命中就要改。 */
 const FORBIDDEN = [

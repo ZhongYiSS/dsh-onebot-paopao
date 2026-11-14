@@ -495,7 +495,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 9. `videoVision*` 与 `vision*` 两套视觉配置是**有意分开**的（单图 3000 token / 40 秒；宫格 8000 token / 180 秒），但字段 14 个，容易配漏。
 10. `ChatRollsCard` 乐观更新，失败不回滚。
 11. `[HOLD]` 是「出现即按住」，没有「独立标记」判定（见 §5）。
-12. `lib/settings-remote.js:139` 的注释写「29 键」，实际 `ALL_KEYS` 是 31 键（`dmRestricted` / `restrictedPreset` 后加时没改注释）。
+12. ~~`lib/settings-remote.js:139` 的注释写「29 键」，实际 `ALL_KEYS` 是 31 键~~（11-14 已统一成 31 键；`queueNoticeEnabled` 是历史开关，只有 `lib/bridge.js` 读、schema 里没有）。
 13. `[LATER]` 的闸门要求「他 3 分钟内说过话」，但 `noteBubbleMore` 在 `bubbleHoldsTurn` 里也会被调用（`[HOLD]` 那一轮不调）—— 逻辑清楚，但改这块时容易把闸门绕过去。
 
 **已修、别再当成 bug 报**
