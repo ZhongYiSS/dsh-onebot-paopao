@@ -300,17 +300,16 @@ export declare class ChatBridge {
      * as member. */
     canEditFiles(sessionId: string): boolean;
     /**
-     * Outbound media fence roots for one agent session's current turn (M1-A3b):
-     * the plugin media dir always, plus the chat's workspace directory when the
-     * running turn's initiator is an admin. The role reuses the M1-A2 turn-level
-     * semantics (canEditFiles: frozen at turn/start, fail-closed member); a
-     * session with no known chat stays mediaDir-only even though canEditFiles
-     * would trust it — the media gate itself fails closed. Roots are
-     * realpath-normalized here; the MediaStore fence re-checks containment
-     * (the double check is harmless).
+     * Outbound media fence for one agent session's current turn (M1-A3b):
+     * `roots === null` means "no directory fence" (admin turn — only the
+     * 绝对不能发 hard-deny list applies); an array is the member-turn allow
+     * list. 2026-11-14 (审计 P0-3): a session with no known chat is a *member*,
+     * not an admin — `canEditFiles` still trusts non-QQ sessions for file
+     * edits, but the media gate must not. Roots are realpath-normalized here;
+     * the MediaStore fence re-checks containment (the double check is harmless).
      */
     mediaSendRoots(sessionId: string | undefined): Promise<{
-        roots: string[];
+        roots: string[] | null;
         isTurnAdmin: boolean;
     }>;
     /** Whether the connection is usable for sends. */

@@ -1,4 +1,30 @@
 # 更新日志
+## 0.5.23 — 2026-11-14
+
+一次只读审计翻出来的四个真洞（全是发文件围栏，哥哥 m23792「检查一遍有没有bug」）。三条是 P0，都能让**群成员**把不该发的东西发进群。
+
+- **P0-1 会话内容能发出去**：成员回合的产物目录原来整块放行 `$DSH_HOME/storages` 和 `$DSH_HOME/cache`，而 `storages/session_projcache/sessions/<uuid>.json` 是会话原文、`cache/attachments/request-images/*` 是跨会话的请求附件。现在产物目录只留 `mediaDir` 和 `$DSH_HOME/media`，并把上面这两个子目录 + `storages/dsh-context` 写进硬拒清单（**管理员也拦**——这是聊天内容，不是产物）。
+- **P0-2 B站 登录态能发出去**：`$DSH_HOME/bubble` 曾是产物目录，而 `bubble/bili/bili_credential.json` 就躺在里面（sessdata / bili_jct / buvid3），文件名又没命中旧的正则。现在 `bubble` 不再整体放行，`bubble/bili` 进硬拒，文件名正则补上「前缀 + credential」这种写法（`bili_credential.json`、`my-credentials.yml`）。
+- **P0-3 不认识的 session 被当成管理员**：`mediaSendRoots` 原来直接信 `canEditFiles()`，而它对「不在 bySession 里的 session」返回 true（Web 会话、QQ 会话起的子代理、换映射那一瞬）→ 围栏整段跳过。现在先确认这条 session 真是一条 QQ 会话，不是就按**成员**处理（跟注释里写的 fail-closed 一致）。
+- **P1-1 「文件不存在」会泄露目录清单**：`fencedMediaFile` 在 realpath 失败时先列同目录前 20 个名字，硬拒和围栏都在后面 → 群成员发一个 `~/.ssh/id_rsa` 之类不存在的名字，就能看到那个目录里有什么。现在列名字之前先过同样的硬拒 + 围栏。
+- **P1-2 系统临时目录**：`%TEMP%` 原来整体给成员（里面有宿主的重启日志、helper 脚本、第三方 `*.tmp.node`），现在不再放行。
+- **P1-3 插话串权限**：`newMessagePolicy: steer` + `autoSteerPolicy: all` 时，群成员的文字能插进**管理员那一轮**（角色按回合冻结，插进去就带着管理员权限跑）。现在「当前这一轮是管理员起的」时只认管理员插话，别人的消息照旧排队。
+- **P2**：`fileToBase64(p, max, null)` 不再抛 `TypeError`（只认真数组）；`maxBytes <= 0` = 不限（原来 0 会把每张封面都判成太大）；`fencedMediaFile` 兼容老写法（直接传数组）；`dshHomeDir()` 现在 `resolve()`，`forbiddenReason` 入口也 `resolve()`，`..` 折不出来。
+- 新增 4 条回归测试（会话内容第二份拷贝、credential 文件名、成员根目录里没有 storages/cache/temp/bubble、productRoots 只剩媒体目录），`npm test` **139 绿**、`guard-publish` 111 文件/17 工具。
+
+### 同一批：设置面板与配置落盘（第二份只读审计）
+
+- **P0 面板每次保存整单被拒**（0.5.15 自己带进来的）：`dmRestricted` / `restrictedPreset` 加进了 QQ 面板，却没进 `lib/settings-remote.js` 的白名单 → 客户端每次提交都带两个「不认识的键」，宿主 `validatePatch` 直接抛「未知设置键」，**整单一个键都不写**；`dmRestricted` 还显示成「关」而运行时是开。三处键表（服务端 `BOOLEAN_KEYS`/`STRING_KEYS`/`SCHEMA_DEFAULTS`、客户端 `configSchema`/`patchSchema`/`DEFAULTS`）已补齐。
+- **多行框全是假的**：`normalizeQqValue` 没有 `lines` 分支 → 「可以发出去的文件夹」这类字段读回来是 `String(数组)` 拼的逗号串，填两个目录再失焦就写回一条带逗号的假路径。现在数组原样、字符串按换行切。
+- **`visionMaxTokens` 一直不存在**：面板、`setConfig`、`getConfig` 三处都有它，schema 里却没有 → 存进 `settings.json` 也被 `apply()` 的「配置里没这个键就跳过」丢掉，重启静默回 3000。补进 schema。
+- **文本框清空存不进去**：客户端空串直接 return、服务端 `writeValue` 把空串判成「没填」→「人格改回默认」「表情包目录清掉」都做不到。现在文本类字段的空串 = 明确清空（其它类型仍然「空 = 不改」，免得把开关/数字打回默认）。
+- **坏 JSON 不再静默**：`readBody` 原来把解析失败当成 `{}`，`POST /cue` 会把话头重置成默认**并落盘**。现在写路由（`/config`、`/cue`、`/ext`、`/rolls`）遇到坏体会回 400 且什么也不改。
+- **`POST /config` 不再吃空配置列表**：`{"profiles": []}` 以前照收 → 下次读配置走「默认两套」分支、绑定全指向不存在的 `p1`，同请求带 bindings 还会 `cfg.profiles[0].id` 直接 TypeError。现在空列表忽略，`profileId` 兜底。
+- **`config.json` 读坏了留副本**：解析失败原来静默回默认，接着任何一次保存就把默认值盖上去（`bubble/` 里已经躺着 5 份 `config.json.bak-*`）。现在先另存一份 `config.json.broken-<时间戳>` 并打日志；`writeConfig` 写 `.tmp` 或改名失败时返回 `false`，接口回 500 说明「这次改动没生效」，不再假装成功。
+- **设置组读不到时说原因**：`loadExt` 原来是空 `catch`，接口一挂，页面上那几组设置全变成「读不到这组设置：undefined」。现在把真实原因带到卡片上。
+- `getConfig` 补上 `mediaDrawDirs`（`setConfig` 早就有，两边不对称）。
+- 新增 `test/ext-settings.test.mjs`（3 条：`lines` 两种读法、文本框清空、非文本空值不改），`npm test` **142 绿**。
+
 ## 0.5.22 — 2026-11-14
 
 「读的配置从来没透传」这一类 bug 的修法与自查工具（哥哥 m23792「检查一遍有没有bug」）。

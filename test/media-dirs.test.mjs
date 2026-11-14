@@ -69,12 +69,13 @@ test('群成员回合：产物目录常在，工作区随开关', () => {
 
 test('产物目录都是推出来的，不是写死的机器路径', () => {
   const roots = productRoots(join(dshHomeDir(), 'media', 'onebot'))
-  assert.ok(roots.includes(tmpdir()))
+  // 2026-11-14 审计：系统临时目录不再整体放行（%TEMP% 里有宿主的重启日志和第三方文件）
+  assert.ok(!roots.includes(tmpdir()))
   for (const r of roots) assert.ok(/^([a-zA-Z]:[\\/]|\/)/.test(r), r)
   assert.ok(!roots.some((r) => r.includes('蓝色大肥鱼')))
 })
 
-test('临时目录里的东西能发，临时目录下的钥匙文件名仍然拦', () => {
+test('临时目录下的钥匙文件名仍然拦（目录本身不再整体放行，靠硬拒兜）', () => {
   const dir = mkdtempSync(join(tmpdir(), 'fence-'))
   try {
     const ok = join(dir, 'shot.png')
@@ -89,4 +90,38 @@ test('临时目录里的东西能发，临时目录下的钥匙文件名仍然�
   finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+// 2026-11-14 审计（P0）：三个真漏的洞，钉住别再开。
+test('硬拒清单：会话内容的第二份拷贝（storages / cache / B站 凭据）', () => {
+  const home = dshHomeDir()
+  const bad = [
+    join(home, 'storages', 'session_projcache', 'sessions', 'x.json'),
+    join(home, 'storages', 'dsh-context', 'x.json'),
+    join(home, 'cache', 'attachments', 'request-images', 'ab', 'deadbeef'),
+    join(home, 'bubble', 'bili', 'bili_credential.json'),
+  ]
+  for (const p of bad) assert.notEqual(forbiddenReason(p), null, p)
+})
+
+test('钥匙文件名：前缀带 credential 的也要拦（bili_credential.json）', () => {
+  for (const p of ['D:/x/bili_credential.json', 'D:/x/my-credentials.yml', 'D:/x/credential.json']) {
+    assert.notEqual(forbiddenReason(p), null, p)
+  }
+  // 正常素材不该被误伤
+  assert.equal(forbiddenReason('D:/x/credit-report.png'), null)
+})
+
+test('成员回合的根目录：不给 storages / cache / 系统临时目录 / bubble', () => {
+  const roots = sendRootsFor({ mediaDir: join(dshHomeDir(), 'media', 'onebot'), isTurnAdmin: false, workspace: 'D:/AGI' })
+  const flat = roots.map((r) => r.replace(/\\/g, '/').toLowerCase())
+  for (const bad of ['/storages', '/cache', '/bubble']) {
+    assert.equal(flat.some((r) => r.includes(bad)), false, bad + ' ← ' + flat.join(' | '))
+  }
+  assert.equal(flat.some((r) => r.includes('/temp')), false, '系统临时目录')
+})
+
+test('productRoots 只留媒体目录，不再整体放出宿主数据区', () => {
+  const roots = productRoots(join(dshHomeDir(), 'media', 'onebot')).map((r) => r.replace(/\\/g, '/').toLowerCase())
+  assert.equal(roots.length, 2)
+  assert.equal(roots.some((r) => r.endsWith('/media')), true)
 })
