@@ -1,4 +1,23 @@
 # 更新日志
+## 0.5.25 — 2026-11-14
+
+按「冷审计」（专看 followup / chatroll / taste / ledger / proc / bili 适配器这些边角模块）修的 11 处。多数是「一次失败就永久失效」和「竞争写回」这类平时不显、出事很难查的问题。
+
+- **追聊排程会永久蒸发**：`[LATER 20]` 到点那一拍如果撞上 `busy`（正在跑别的回合）或 `quiet`（免打扰），以前只记一行日志就丢了 —— 她说了「等会儿再聊」，然后永远不聊。现在按原因分开重排（busy 90 秒 / quiet 10 分钟 / off 5 分钟 / notyet 1 分钟 / nochat 5 分钟），最多重试 12 次，日志写明「这一拍没跑成，N 分钟后再试」。
+- **关掉再打开，追聊全丢**：`restart()` 的开启分支没有调 `followup.restore()`，pending 里的排程重启后不会 fire。补上；`restore()` 同时跳过已经在计时里的 chatId（避免两个定时器抢同一个会话）。
+- **一拍结算两次 / 重置被复活**：`tick.mjs` 的 `merge()` 会把内存里的整份快照写回盘，盖掉同一时间 `turn/end` 写的 `lastSettleAt`（→ 同一轮 `[SCORE]` 结算两次），`/reset` 之后也会被复活。现在只合并「这一拍自己拥有的键」（涨权、窗口、计数、游标），结算键取盘上较新的那个。
+- **`[LATER 30分钟]` 不排队还漏进聊天框**：陪伴侧解析认中文单位，QQ 侧的闸门与剥离只认 `m|s`。新建 `lib/markers.js` 一份正则三处共用（解析 / 闸门 / 剥离），`[AT hh:mm]` 不认但会被剥掉。
+- **查不到进程 = 没有进程 → 双开 NapCat**：`lib/proc.js` 的 `run()` 把 tasklist 失败当空串，`waitGone` 于是判定「都死了」，重启时再拉一个新的，两个 NapCat 抢同一个号。现在失败返 `null` 并逐层区分「不知道」：`findNapcat` 回 `unknown:true`、`waitGone` 抛错，`napcatRestart` 见 unknown / 杀不掉任何一棵就停手，不再 spawn。
+- **`videoMaxSec: 0`（不限）变成最严的 ≤61 秒**：`Math.max(minSec+1, 0)`。改成 `0 → Infinity`；播放量门槛同类的 `x.play === undefined` 永不成立也一并修掉。
+- **账本滚动会整本丢**：`ledger.mjs` 的 `rollIfBig()` 直接对原文件 `writeFileSync`，写到一半崩了就没了。改 `.tmp` + rename。
+- **来料重复投递**：`dropInbox()` 忽略 `writeAll` 的返回值，落盘失败时同一批「B站 有动静」会再投一次。现在落盘失败就当没删。
+- **`state.json` 写失败会抛进 tick**：`writeJson` 包了 try/catch 返回 false。
+- **同毫秒撞 id**：`chatroll.mjs` 用毫秒时间戳当 roll id，同毫秒两条会被去重吞掉。改成时间戳 + 随机后缀。
+- **嗓子离线时把 meme 一起扔**：`pickRoll` 先掷后过 voice 闸门，掷中语音（离线）就整轮什么都不塞。现在先问嗓子在不在，不在就把 voice 槽剔除再掷。
+- **口味账：5 分的条目会被当旧账清掉**：`bumpTaste` 在 delta=0 时直接 return，`at` 不刷新 → `trim()` 按 `at` 裁到 400 条时，常被推但她从不评价的 UP 会先被删。现在 0 分也刷 `at`（只刷已有条目）。
+- **挑视频只会翻第一页**：搜索固定 `page:1`、热门只取一页 → 发得多了，第一页全在「发过」账本里，候选被过滤光，表现成「找不到视频」。现在按需翻 3 页（攒够 `videoPerRound × 4` 就停），热门翻 2 页。
+- 新增 `test/markers.test.mjs`（5 条：中文单位、分钟/秒换算、`[AT]` 只剥不认、剥离干净、连调不残留 lastIndex），`npm test` **150 绿**、`guard-publish` 112 文件/17 工具。
+
 ## 0.5.24 — 2026-11-14
 
 第三份只读审计（群聊/私聊「何时开口 + 权限分级」）翻出来的问题。两处是「借机器人的手做越权的事」，一处是安全降级。

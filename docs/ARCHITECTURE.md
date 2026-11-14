@@ -44,7 +44,8 @@
 | `lib/cq.js` | ~350 | CQ 码、@ 检测、引用/转发解析、share 摘要 |
 | `lib/chat.js` | ~157 | chatId 解析、`classifyUserRole(userId, adminUsers)`、`dmAllowed`、`groupAllowed`、`[群成员]` 前缀常量 |
 | `lib/napcat.js` | ~171 | NapCat 纯函数：目录推断、启动命令、VBS 脚本、二维码信息、进程表解析 |
-| `lib/proc.js` | 116 | 进程枚举/查杀（`listProcs/findNapcat/killTree/waitGone`），不碰 `QQ.exe` |
+| `lib/proc.js` | 130 | 进程枚举/查杀（`listProcs/findNapcat/killTree/waitGone`），不碰 `QQ.exe`；**查不到进程表返回 `null`**，调用方必须区分「不知道」与「没有」 |
+| `lib/markers.js` | 62 | **机制标记的唯一一份正则**（`[HOLD]/[SCORE]/[LATER]/[AT]` 的解析、闸门、剥离都调它） |
 | `lib/vision.js` | ~161 | 识图客户端（OpenAI 兼容）+ `parseHeaderJson` |
 | `lib/video-look.js` | ~960 | 看视频：下载 → 场景切分 → 抽帧 → 宫格 → 逐格问模型 → 汇总 |
 | `lib/settings-remote.js` | ~460 | 设置页 Remote：字段白名单、schema、补丁校验 |
@@ -139,6 +140,7 @@ binding 关 / 无 profile / releaseBase 非法 → return
 
 - **来料**（B站 私信/@/回复）：`bili-watch.mjs` → `pushInbox(home, chatId, items)` → `inbox.json` → 下一拍照话头里带「B站 有动静」，`origin: 'inbox'`。
 - **追聊**（会话自己写 `[LATER 25]`）：`followup.mjs` 起 `setTimeout`（`unref`），到点 `ticker.tick(chatId, {followup:true})`；受 `followupPerDay` / `followupMaxHours` 约束，**只受免打扰管、不受限流管**；`restore()` 会把过点的挪到 5 秒后。
+  - **0.5.25 起**：到点那一拍如果被跳过（`busy` 90 秒 / `quiet` 10 分钟 / `off` 5 分钟 / `notyet` 1 分钟 / `nochat` 5 分钟），会**按原因重排**而不是蒸发，最多 12 次；`restart()` 的开启分支也会 `restore()`（关掉再打开不丢排程），`restore()` 幂等（已在计时里的 chatId 跳过）。
 - **`[AT hh:mm]`（「到几点再叫我」）已在 11-09 砍掉**：`prompt.mjs` 的 `readLater` 只认 `[LATER n]`（分钟），`[AT …]` 返回 `null`，`test/core.test.mjs` 有一条断言钉着。别再照老文档实现它。
 
 ### 3.4 消息进出 QQ
@@ -207,11 +209,16 @@ s = clamp(round(score/10 + (inbound ? inboundBonus : 0)), 0, 12)
 
 ## 5. 标记协议（会话写在正文里，插件在发送前处理）
 
+> **正则只有一份**：`lib/markers.js`（`LATER_SRC` / `AT_SRC` / `SCORE_SRC` / `HOLD_SRC` + `hasLater/matchLater/matchScore/stripMarkers`）。
+> 陪伴侧解析（`lib/companion/prompt.mjs` 的 `readLater/readScore`）与 QQ 侧闸门/剥离（`lib/bridge.js`）都调它。
+> **别再在别处另写一份**——0.5.24 之前就是两处各写一份、单位不一致，导致 `[LATER 30分钟]` 既不排队、还被原样印进聊天框。
+> 所有正则**每次现造**，不要导出带 `/g` 的常量复用（`lastIndex` 会残留）。
+
 | 标记 | 谁读 | 语义 | 代码位置 |
 |---|---|---|---|
 | `[HOLD]` | `bridge.bubbleHoldsTurn` + `sendToChat` | 这一轮**一个字都不发**（但分照收、账照扣） | `lib/bridge.js:545`（判定）、`:473`（剥除） |
 | `[SCORE n]` | `bridge.noteBubbleScore` | 她给这一轮打 0~12 分，插件剥掉不发 | `lib/bridge.js:513` |
-| `[LATER n]` | `bridge.noteBubbleMore` → `followup.request` | 过 n 分钟再叫醒一轮（**只支持分钟**，`[AT hh:mm]` 已砍） | `lib/bridge.js:494` |
+| `[LATER n]` | `bridge.noteBubbleMore` → `followup.request` | 过 n 分钟再叫醒一轮；**单位认 `m`/`s`/`分钟`/`秒`**，`[AT hh:mm]` 已砍（只剥不认） | `lib/markers.js` → `lib/bridge.js:494` |
 | `[SKIP]` | —— | **已删除**，只剩发送前顺手剥掉（老回复残留） | `lib/bridge.js:473` |
 
 闸门（防止自己半夜给自己排卡）：
@@ -498,6 +505,25 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 - `POST /config` 吃空 `profiles`（现在先过滤空项，空了直接忽略）
 - `loadExt` 空 catch（现在会把错误画成错误卡）
 - `[AT hh:mm]` 定时写法（已砍，只留 `[LATER n]`）
+- **0.5.25（按冷审计修的 11 条，都补了注释「11-14：…」说明为什么）**：
+  - 追聊撞上 `busy` / `quiet` 就永久蒸发 → 按原因重排（`RETRY_MS`）、最多 12 次
+  - 关掉再打开丢排程 → `restart()` 的开启分支补 `followup.restore()`，`restore()` 幂等
+  - `merge()` 整份写回盖掉 `turn/end` 的结算键（重复结算 / 重置复活）→ 只合并本拍拥有的键
+  - `[LATER 30分钟]` 不排队还漏进聊天框 → `lib/markers.js` 一份正则三处共用
+  - `proc.js` 把「查不到进程」当「没有进程」→ 双开 NapCat；现在 `null` 逐层传到 `napcatRestart` 停手
+  - `videoMaxSec: 0`（不限）被算成 ≤61 秒；`play === undefined` 门槛永不成立
+  - `ledger.rollIfBig()` 非原子写（崩了整本丢）→ `.tmp` + rename
+  - `dropInbox()` 忽略写盘失败 → 来料重复投递
+  - `state.writeJson` 失败会抛进 tick → 包 try/catch 返 false
+  - `chatroll.newRoll` 用毫秒当 id → 同毫秒被去重吞掉；改成时间戳 + 随机后缀
+  - `pickRoll` 先掷后过 voice 闸门 → 嗓子离线时 meme 一起扔；改成先问再掷
+  - `taste.bumpTaste` 5 分不刷 `at` → 常推的 UP 被当旧账裁掉
+  - 挑视频只翻第一页 → 候选全在「发过」账本里被过滤光；搜索翻 3 页、热门翻 2 页
+
+**仍存在的小毛刺**
+
+- `guessNapcatDir()` 会猜 `C:\NapCat` / `D:\NapCat`（要 `launcher.bat` 真在才算数，但机器上若装过两份 NapCat 可能猜中旧的那份；填了 `napcatDir` 就不会猜）。
+- 测试偶发 1 条失败（约 1/10，连跑不复现，2026-11-14 跑 20 次只出现 1 次），怀疑与「同一秒内写同一份临时文件」的用例有关，尚未定位 —— 见到先重跑，别当功能 bug。
 
 **刻意取舍（不是 bug，别改）**
 
