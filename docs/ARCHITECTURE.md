@@ -543,6 +543,13 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 - `guessNapcatDir()` 会猜 `C:\NapCat` / `D:\NapCat`（要 `launcher.bat` 真在才算数，但机器上若装过两份 NapCat 可能猜中旧的那份；填了 `napcatDir` 就不会猜）。
 - 测试偶发 1 条失败（约 1/10，连跑不复现，2026-11-14 跑 20 次只出现 1 次），怀疑与「同一秒内写同一份临时文件」的用例有关，尚未定位 —— 见到先重跑，别当功能 bug。
 
+**知道但暂不处理（2026-11-15 定，别当新 bug 重报）**
+
+- **bili 的压缩和原版 `compaction-basic` 并存**。判定依据：`billion-context/dist/agent/dsh-compaction-gate.js` 用 `ctx.on('internal/config', fn, { global: true })` 把解析出来的配置里 `@deepseek-ai/dsh-compaction-basic` / `@deepseek-ai/dsh-command-compact` 行改成 `disabled: true`；而这个 gate 只由 bili 自己的 patch 注入到 `preset-standard` / `preset-ptc` / `preset-minimal` / `preset-cordis` 四个预设。**自定义预设（含本插件的 `qq-group`）没注入它**。
+- 不处理的理由：钩子是 `{global:true}` 的 —— 进程里只要**任意一处**注入过，全进程（含群会话）的原版压缩都会被关掉；本机桌面主会话用 `standard`，已经在保护范围内。实测群会话 `onebot-group-1127808570-mwg6n446`（`agentPreset: qq-group`，27.3 万字 / 35 帧）日志里 ACP 折叠痕迹 **0 次**，压根没触发过。
+- 真正会变问题的情况：**把插件发布给别人**、而对方所有会话都在自定义预设里（一个注入的预设都没用到）→ 那时 bili 的 `compress` 工具和原版压缩各改各的历史，就是社区里「无限调用压缩」的来源。修法是给 `preset-qq-group` 补一行 `inject: [biliBasicCompactionPolicy]`（幂等；改 profile 要重启 DSH 才生效）。
+- 另一侧的事实：bili 的工具层只有**劝导性**护栏（`no net shrink` 拒绝、`canRetry:false`、同 spec 失败计数 `compressFailKeys` 加 `[Repeat-failure guard]`），**没有「连续失败就禁用 compress」的硬熔断** —— 所以它不会自己循环，但也没法强行拦住一个不停重试的模型。
+
 **刻意取舍（不是 bug，别改）**
 
 - 事件池只有 `video` 有准备器：其余八槽「只递词」，因为做法由会话决定（普适化要求）。
