@@ -327,11 +327,14 @@ napcatAutoStatus / setNapcatAuto / qqOff / qqOffStatus / setQqOff / napcatCheck
 ```
 adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 standard/当前会话预设）
 私聊 + 非管理员 + dmRestricted → restrictedPreset（留空沿用 groupPreset）
-群聊                          → groupPreset（默认 qq-group，无 shell/terminal/写文件）
+群聊 + groupPreset 非空        → groupPreset（例如 qq-group：无 shell/terminal/写文件）
+群聊 + groupPreset 留空        → 同第一行（agentPreset / 部署默认）—— 0.5.34 起的默认
 ```
 
+> 2026-11-15 哥哥定：这套沙箱是**可选**的，不当默认。`groupPreset` 默认 `''`、`dmRestricted` 默认 `false`、`groupPolicy` 默认 `'open'`，跟原版 onebot 一致；想用安全模式就自己填预设名 / 打开开关。`preset-qq-group` 仍随插件发布。
+
 - `lib/chat.js:49` 的 `classifyUserRole(userId, adminUsers)` 是「管理员 / 成员」的唯一判据；`dmAllowed` / `groupAllowed` 在**每次投递前**都要复检（不是建会话时判一次）。
-- **fail-closed**：预设解析不出来就 `throw blocked`（`blocked.presetBlocked = true`），**绝不静默退回完全权限**。`groupPreset` 留空也算解析失败。
+- **fail-closed**：预设**填了但解析不出来**就 `throw blocked`（`blocked.presetBlocked = true`），**绝不静默退回完全权限**。留空不算失败——留空的意思是「不要这套沙箱，走默认预设」。
 - `[群成员]` 前缀（`lib/chat.js` 的 `RESTRICTED_PREFIX`）加在群成员消息上，提示词里据此区分「他说的话」与「主人下的命令」。老别名 `[受限用户:仅问答]` 只作兼容剥离。
 - `POLICY_KEYS` 命中时，`setConfig` 会就地 `Object.assign(bridge.deps.policy, resolvePolicy(cfg))` —— 策略是 `apply()` 时算一次的常量，不重算就是「存上了不生效」。
 
@@ -556,7 +559,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 - `[HOLD]` 也照扣权重：哥哥认可（这一轮确实占了她的注意力）。
 - 追聊不扣不结：追聊是她排队等着的补充，纯亏会让她不敢排。
 - 抽卡轮不吃分：防止抽卡轮随手给分刷权重。
-- 群聊/私聊非管理员进受限预设，但**没做硬隔离**（工具仍在表里）：靠人格 + 提示词兜底，预设只做默认收口。
+- 群聊/私聊非管理员进受限预设**是可选的**（0.5.34 起默认不启用），而且即便启用也**没做硬隔离**（工具仍在表里）：靠人格 + 提示词兜底，预设只做默认收口。
 
 ---
 
@@ -614,7 +617,7 @@ curl -s http://127.0.0.1:<GUI端口>/api/bubble/ext
 ### C. 权限与围栏
 - [ ] 每个写操作工具是否都过了 `requireAdminCaller` / `isAdminChat`？
 - [ ] `resolveChat` 是否校验「谁在发」？
-- [ ] 预设解析失败是否 fail-closed？`groupPreset`/`restrictedPreset` 留空是否也算失败？
+- [ ] 预设解析失败是否 fail-closed？（**填了**的名字解析不了必须拒；留空是「不用沙箱」，不算失败——0.5.34 起）
 - [ ] 硬拒清单能不能被 `..`、符号链接、大小写、UNC 路径绕过？
 - [ ] 报错信息会不会泄露目录内容？
 

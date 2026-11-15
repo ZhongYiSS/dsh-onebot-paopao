@@ -129,7 +129,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 **看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-14（0.5.31：NapCat 停更后的 QQ 版本自检——面板和启动日志会说「QQ 这版 NapCat 认不认」，不认就给照做建议；0.5.30/0.5.29：面板被自己的同源校验 403 挡住、设置页整块消失两起事故的修复；0.5.28～0.5.26：见 CHANGELOG）——`npm test` **174 个用例全绿**、`node scripts/guard-publish.mjs` 通过（124 个文件、17 个工具）。
+最后验证：2026-11-15（0.5.34：去掉默认的「安全模式」——`groupPreset`/`dmRestricted` 默认关，回到原版 onebot 的行为，沙箱保留成可选；「NapCat / QQ 登录」卡改成「QQ 连接」卡，NapCat 那套收进折叠。0.5.33：常驻随意聊名单；0.5.30/0.5.29：面板 403 与设置页整块消失两起事故的修复；更早见 CHANGELOG）——`npm test` **184 个用例全绿**、`node scripts/guard-publish.mjs` 通过（124 个文件、17 个工具）。
 
 ## 安装
 
@@ -159,10 +159,11 @@ dsh plugin --profile web add dsh-onebot-paopao
    无需任何 npm override。
 2. 把包内 `cordis.patch.yml` 模板的**三条** insert 合并进 profile 层
    `<DSH_HOME>/profiles/web/cordis.patch.yml`：主条目 `name: 'dsh-onebot-paopao'`，
-   host-plane 行 `name: 'dsh-onebot-paopao/settings-remote'`，以及**群聊受限预设**
-   `id: preset-qq-group`（`name: '@deepseek-ai/dsh-agent-preset'`，`config.id: qq-group`）；
-   config 覆盖须挂 patch 顶层同 id 行（详见模板头注释）。
-   ——第三条不能省：群聊默认挂受限预设，预设解析不了时插件会**拒绝开这个群会话**
+   host-plane 行 `name: 'dsh-onebot-paopao/settings-remote'`；
+   第三条是**可选**的群聊受限预设 `id: preset-qq-group`（`name: '@deepseek-ai/dsh-agent-preset'`，
+   `config.id: qq-group`，config 覆盖须挂 patch 顶层同 id 行，详见模板头注释）。
+   想做群聊沙箱才加：0.5.34 起 `groupPreset` 默认留空 = 群会话跟其它会话用同一个预设；
+   填了 `qq-group` 才有「没有命令行、不能写文件、不能装插件」那套。**填了但解析不了会拒绝开群会话**
    （日志/群里提示「群聊预设 qq-group 解析不了…」），这是有意的 fail-closed，
    宁可不回消息，也不让群里的人拿到完全权限。
 3. **不要**在 profile 的 package.json 手写任何 `@deepseek-ai/*` 依赖——手写副本会
@@ -208,9 +209,10 @@ DSH_ROOT=<fnOS 应用数据目录>/node_modules ./scripts/build.sh
         adminUsers: ['你的QQ号']   # 必配：至少一个管理员，否则私聊/斜杠命令不可用
 ```
 
-> ⚠️ **群聊要配预设**：`groupPreset` 默认 `qq-group`，留空或解析不了都会让群会话被拒绝
-> （2026-11-14 起群聊也是 fail-closed）；私聊里「主人/管理员」走完全权限预设，白名单里的
-> 其他人走受限预设（`restrictedPreset`，留空沿用 `groupPreset`），可用 `dmRestricted: false` 关掉分级。
+> 💡 **群聊沙箱是可选的**（0.5.34 起）：`groupPreset` 默认留空 = 群会话跟其它会话一样走
+> `agentPreset`；想给群聊套沙箱就填 `qq-group`（**填了但解析不了会拒绝开群会话**，fail-closed）。
+> 私聊默认只认管理员（`adminUsers`/`ownerQQ`）；想让白名单里的人也能私聊（但只聊天、摸不到文件）
+> 才打开 `dmRestricted: true`，他们进 `restrictedPreset`（留空沿用 `groupPreset`）。
 >
 > ⚠️ **首次配置必须设置至少一个管理员**（`adminUsers` 或环境变量 `ONEBOT_ALLOWED_USERS`）：
 > `dmPolicy: open`（默认）只允许管理员私聊，斜杠命令也仅管理员可用；不设置则无人能对话。
