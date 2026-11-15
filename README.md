@@ -129,7 +129,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 **看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-15（0.5.34：去掉默认的「安全模式」——`groupPreset`/`dmRestricted` 默认关，回到原版 onebot 的行为，沙箱保留成可选；「NapCat / QQ 登录」卡改成「QQ 连接」卡，NapCat 那套收进折叠。0.5.33：常驻随意聊名单；0.5.30/0.5.29：面板 403 与设置页整块消失两起事故的修复；更早见 CHANGELOG）——`npm test` **184 个用例全绿**、`node scripts/guard-publish.mjs` 通过（124 个文件、17 个工具）。
+最后验证：2026-11-15（0.5.35：「第一次用」卡与必做清单改成「QQ 客户端」口径——不再要求 NapCat 目录，NapCat / SnowLuma / 任何 OneBot v11 客户端都能接；0.5.34：去掉默认的「安全模式」，`groupPreset`/`dmRestricted` 默认关，回到原版 onebot 的行为；「NapCat / QQ 登录」卡改成「QQ 连接」卡。0.5.33：常驻随意聊名单。更早见 CHANGELOG）——`npm test` **185 个用例全绿**、`node scripts/guard-publish.mjs` 通过（124 个文件、17 个工具）。
 
 ## 安装
 

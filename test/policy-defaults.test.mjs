@@ -43,3 +43,17 @@ test('默认配置下群聊放行、私聊只认管理员（跟原版一样）',
   // open 的私聊分支只认管理员 —— 白名单（allowFrom）不开后门，这点跟原版一致
   assert.deepEqual(policy.allowFrom, [])
 })
+
+// 2026-11-15：QQ 客户端不再固定是 NapCat，「必做清单」里不许再要求填 NapCat 目录，
+// 也不许再出现「第一次用」卡的非 NapCat 文案（他是照面板学会这套的，文案必须一致）。
+test('必做清单不再要求 NapCat 目录（客户端现在可以是别人的）', async () => {
+  const { readFileSync } = await import('node:fs')
+  const appSrc = readFileSync(new URL('../lib/companion/app.mjs', import.meta.url), 'utf8')
+  assert.ok(!appSrc.includes("key: 'napcatDir'"), '清单里还挂着 NapCat 目录')
+  // 清单剩五项，且都是跟聊天本身有关的
+  const start = appSrc.indexOf('function readSetup(cfg)')
+  const end = appSrc.indexOf('function readAccess()')
+  const body = appSrc.slice(start, end)
+  const keys = [...body.matchAll(/key: '([a-zA-Z]+)'/g)].map((m) => m[1])
+  assert.deepEqual(keys, ['ownerQQ', 'workspace', 'memeDir', 'bindings', 'events'])
+})
