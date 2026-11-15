@@ -462,8 +462,8 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 
 ## 12. HTTP 接口（`/api/bubble/*`，`lib/companion/app.mjs`）
 
-读：`/state`（根路径 `/` 是同一条分支的别名）`/channel` `/probe` `/chats` `/sessions` `/ext` `/rolls` `/watch` `/ledger` `/videos` `/doctor` `/setup` `/setup/token` `/napcat` `/napcat/qr` `/napcat/auto` `/qq/off` `/cue` `/prompt` `/bili/login/poll` `/bili/who`
-写：`/config` `/run` `/reset` `/card` `/session` `/unretire` `/ext` `/ext/reveal` `/rolls` `/watch/run` `/videos/block` `/videos/unblock` `/cue` `/cue/preview` `/client-log` `/napcat/start` `/napcat/restart` `/napcat/auto` `/qq/off` `/bili/login/start`
+读：`/state`（根路径 `/` 是同一条分支的别名）`/channel` `/probe` `/chats` `/sessions` `/ext` `/rolls` `/watch` `/ledger` `/videos` `/doctor` `/setup` `/setup/token` `/napcat` `/napcat/qr` `/napcat/auto` `/qq/off` `/cue` `/prompt` `/bili/login/poll` `/bili/who` `/client-config`（按当前端口+token 生成 SnowLuma/NapCat 反向 WS 片段）
+写：`/config` `/run` `/reset` `/card` `/session` `/unretire` `/ext` `/ext/reveal` `/rolls` `/watch/run` `/videos/block` `/videos/unblock` `/cue` `/cue/preview` `/client-log` `/quick` `/napcat/start` `/napcat/restart` `/napcat/auto` `/qq/off` `/bili/login/start`
 
 约定：
 - 统一 `{ ok: true, ... }` / `{ ok: false, error }`；
@@ -583,6 +583,15 @@ curl -s http://127.0.0.1:<GUI端口>/api/bubble/ext
 
 真发一条（会真的发到 QQ）：`POST /api/bubble/run`（body `{"chatId":"private:<qq>","force":true}`）。
 干跑：配置里 `dryRun: true` 时 `/run` 只写日志。
+
+**什么时候要重启**（0.5.36 起 README 与面板都写明）：
+
+| 改了什么 | 要不要重启 |
+|---|---|
+| 面板上任何一项设置（含首页必做清单里那三项，走 `POST /quick` → `setConfig`） | **不用**，热生效 + 落 `settings.json` |
+| 换插件版本 / 新装 / 卸载插件 | **要** |
+| `cordis.patch.yml` 里那些面板上没有的底层项（`port`/`host`/`accessToken`/`napcatDir`/`mediaDir`/预设 id…） | **要** |
+| 群里老会话想换预设 / 人设 | 不用重启，群里发 `/new` |
 
 **静态 import 的模块要重启宿主才生效**：`lib/index.js`、`lib/bridge.js`、`lib/prompt.js`、`lib/tools.js`、`lib/companion/app.mjs`、`lib/registry.js`。
 `lib/client.js` 是客户端产物，**改完点界面上的「刷新」**即可（不用重启）。

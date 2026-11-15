@@ -1,8 +1,8 @@
 # dsh-onebot-paopao（泡泡）
 
-> ⚠️ **测试中：可以试装，但别指望它稳。** 当前 0.5.16。界面、平台说明、权限分级这几周一直在改，还没跑过完整的人工回归（面板各项、NapCat 起停、主动开口、B站 来料）。出问题请开 issue，把日志和复现步骤带上。
+> ⚠️ **测试中：可以试装，但别指望它稳。** 当前 0.5.36。界面、平台说明、权限分级这几周一直在改，还没跑过完整的人工回归（面板各项、客户端起停、主动开口、B站 来料）。出问题请开 issue，把日志和复现步骤带上。
 >
-> ⚠️ **Work in progress — install at your own risk.** Current version 0.5.16 (see README.en.md).
+> ⚠️ **Work in progress — install at your own risk.** Current version 0.5.36 (see README.en.md).
 
 > **[English](README.en.md) | 中文**
 
@@ -25,29 +25,46 @@
 
 ## 三分钟装好
 
-**装之前先确认这三样**（缺一样都连不上 QQ）：
-
-1. **NapCat 要以管理员身份运行** —— 它要把自己注入 QQ 进程，不提权起不来（自动拉起时会卡 UAC 弹窗，插件会跳过并提示）。
-2. **QQ 客户端版本要钉住** —— 插件不认识 QQ 协议，是 NapCat 按 QQ 的 build 号打补丁，所以 QQ 必须落在 NapCat 那张表里：表的上限随 NapCat 版本走（4.18.41 到 `9.9.36-53644`，4.18.42 到 `9.9.37-54276`），实测最稳的是 `9.9.33-52230`。QQ 自动更新到表外的新 build，NapCat 注入后没有二维码、QQ 还会弹「文件已损坏」，插件侧报 `PacketBackend 不支持当前QQ版本架构`。
-   查自己的表：`cd <NapCat目录> && grep -o -a "9[.]9[.][0-9]*-[0-9]*-x64" napcat.mjs | sort -u | tail -3`。
-   修法是把 NapCat 用的 QQ 换回表内版本（单独拷一份 QQ 目录、改 `launcher.bat` 里的 `QQPath`，不动系统 QQ），并把那份副本的自动更新关掉。
-3. **VC++ 运行库** —— 缺了 NapCat 会 0xC0000135 秒退；装一下 `winget install Microsoft.VCRedist.2015+.x64`。
+**泡泡只干两件事：跟 QQ 说话、自己找话说。** QQ 那一头不绑死任何客户端——只要它能当 **OneBot v11 反向 WebSocket 客户端**拨进来就行（SnowLuma / NapCat / LLOneBot / Lagrange 都可以）。**起客户端不归插件管**，插件只负责开一扇门等它来连。
 
 ```sh
-# 1. 装插件（二选一）
+# 1. 装插件（三选一）
 dsh plugin --profile desktop add github:ZhongYiSS/dsh-onebot-paopao
-dsh plugin --profile desktop add dsh-onebot-paopao     # 发到 npm 之后
+dsh plugin --profile desktop add dsh-onebot-paopao          # 发到 npm 之后
+#  或者本地目录： 在 profile 的 package.json 里写 "dsh-onebot-paopao": "link:D:/path/to/repo"
 
-# 2. 重启 DSH（插件要重启才挂得上）
-# 3. Web 界面 → 设置 → 泡泡 → 总览 → 「检查环境」，缺什么按提示补
+# 2. 重启 DSH（插件是静态加载的，不重启挂不上）
 ```
+
+3. **打开面板**：设置 → 插件 → 泡泡。首页照「必做清单」走，前三项（**主人 QQ / QQ 会话工作区 / 表情包目录**）能直接在清单里填，存完立刻生效。
+4. **接客户端**：在你挑的那个客户端里加一条「反向 WebSocket 客户端」，地址填 `ws://127.0.0.1:8643/ws`，token 用面板上「复制 token」那个值。
+   懒得抄就点面板上的「**生成客户端配置**」——它按你现在的端口和 token，把 SnowLuma / NapCat 两种写法的片段直接拼好，复制粘贴即可。
+5. **点亮三盏灯**：客户端登录 → 拨过来 → 三盏灯全绿 → 回面板打开「启用」。
+6. **验一句**：用主人 QQ 给机器人发一句话，收到回复就算通了。
 
 > **机器上没有 git**（`github:` 简写要靠 git 去 clone）：把 profile 的 `package.json` 里那一行换成 codeload 的 tar.gz 直链，pnpm 认这种依赖：
 > `"dsh-onebot-paopao": "https://codeload.github.com/ZhongYiSS/dsh-onebot-paopao/tar.gz/<commit>"`
 > 或者 `npm pack` 出一个 `.tgz` 再装。装完记得重启 DSH。
 
-然后：设置页「泡泡 → 第一次用」里点「启动 NapCat」→ 扫码登录一次 → 在「QQ 通道」填机器人 QQ 号 →
-用另一个号给它发一句话，收到回复就算接通了。
+### 什么时候要重启 DSH
+
+| 改了什么 | 要不要重启 |
+|---|---|
+| 面板上任何一项设置（包括必做清单里那三项） | **不用**，存完就生效 |
+| 换了插件版本 / 新装 / 卸载插件 | **要** |
+| 改了 `cordis.patch.yml` 里那些底层项（端口、host、accessToken、`napcatDir`、`mediaDir`、预设 id 之类面板上没有的） | **要** |
+| 群里老会话想换预设 / 换人设 | 不用重启，在群里发 `/new` |
+
+### NapCat 这类客户端的额外门槛
+
+NapCat 系要往 QQ 进程里注入，所以它自己有三条硬要求，跟插件无关：
+
+1. **要管理员身份运行**（不提权注入不进去）。
+2. **QQ 版本必须在它那张偏移表里** —— 表的上限随 NapCat 版本走。QQ 自动更新到表外的新 build 时，注入后没有二维码、QQ 还会弹「文件已损坏」。面板「QQ 连接 → NapCat 设置」里那行版本提示就是干这个的：表外的会说「未验证版本」。
+   查自己的表：`cd <NapCat目录> && grep -o -a '9\.9\.[0-9]*-[0-9]*-x64' napcat.mjs | sort -u | tail -3`（表里没有当前 QQ 的 build，就是「未验证版本」）
+3. **VC++ 运行库**（缺了 0xC0000135 秒退）：`winget install Microsoft.VCRedist.2015+.x64`。
+
+**不想碰这些，就换 SnowLuma 这类跟着新版 QQ 走的客户端**——它一个 zip 解压就能跑，只要在其中配一条反向 WS 指回 `8643`。插件的「NapCat 设置」那一块届时可以完全不碰。
 
 装不上、要走源码安装、要手动合并 `cordis.patch.yml` 的，看下面的[安装](#安装)一节。
 
@@ -129,7 +146,7 @@ node bin/doctor.mjs          # 或 npx dsh-paopao-doctor
 
 **看「必需 / 可选」那一列**：`必需` 只有四项——Node ≥22、`ws`、`@napi-rs/canvas`、`fontkit`，它们红了才是「跑不起来」；其余全是 `可选`，黄了只少一块功能（比如没 ffmpeg 就看不了视频，但聊天照旧）。面板底部的结论也只按必需项算。设置页「陪伴 → 总览」里也有同一个按钮（「检查环境」）。
 
-最后验证：2026-11-15（0.5.35：「第一次用」卡与必做清单改成「QQ 客户端」口径——不再要求 NapCat 目录，NapCat / SnowLuma / 任何 OneBot v11 客户端都能接；0.5.34：去掉默认的「安全模式」，`groupPreset`/`dmRestricted` 默认关，回到原版 onebot 的行为；「NapCat / QQ 登录」卡改成「QQ 连接」卡。0.5.33：常驻随意聊名单。更早见 CHANGELOG）——`npm test` **185 个用例全绿**、`node scripts/guard-publish.mjs` 通过（124 个文件、17 个工具）。
+最后验证：2026-11-15（0.5.36：首页必做清单里的主人 QQ / 工作区 / 表情包目录能就地改（存完立刻生效），新增「生成客户端配置」一键拿到 SnowLuma / NapCat 的反向 WS 片段，README 换成客户端无关的三分钟接入 + 一张「什么时候要重启」表；0.5.35：「第一次用」卡与必做清单改成「QQ 客户端」口径；0.5.34：去掉默认的「安全模式」；0.5.33：常驻随意聊名单。更早见 CHANGELOG）——`npm test` **190 个用例全绿**、`node scripts/guard-publish.mjs` 通过（124 个文件、17 个工具）。
 
 ## 安装
 

@@ -1,6 +1,6 @@
 # dsh-onebot-paopao (PaoPao)
 
-> ⚠️ **Work in progress — install at your own risk.** Current version 0.5.16. The UI, the platform prompt and
+> ⚠️ **Work in progress — install at your own risk.** Current version 0.5.36. The UI, the platform prompt and
 > the permission tiers are still changing and have not been through a full manual regression pass yet (panels,
 > NapCat start/stop, proactive speaking, Bilibili intake). Please open an issue when something breaks.
 
