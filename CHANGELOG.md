@@ -1,4 +1,25 @@
-# 0.5.37 — 2026-11-19
+# 0.5.38 — 2026-11-19
+
+**两处从崩溃日志里捞出来的毛病：群聊沙箱其实一直没挂上、角色登记队列刷屏还错位。**
+
+## 一、`preset-qq-group` 挂载失败 → 群聊沙箱一直是空的（哥哥 11-19 报）
+
+- 症状：启动日志里一行 `agent preset mount failed (tools fall back to the global layer): tool-todo: invalid config: $.allowParallelInProgress missing required value`。
+- 根因：`cordis.patch.yml` 的 `preset-qq-group` 里 `tool-todo` 没写 `config`；新版宿主把这个键改成了**必填**（`dsh-tool-todo/lib/index.js` 里 `z.object({ allowParallelInProgress: z.boolean().required() })`，内置 `standard.patch.yml` 写的是 `true`）。一个插件配置不合法 ⇒ 整个预设挂载失败 ⇒ 工具**静默回退到全局层**。
+- 后果（这才是重点）：所谓「群聊沙箱」从加上那天起就没生效过 —— 群里照样能拿到 `ops_bash`、写文件。之前疑惑「为什么群里工具表里还有 58 个」的答案就是这个。
+- 修法：`config: { allowParallelInProgress: true }`，并留注释说明为什么不能省。（用 pyyaml 校验过解析结果 `{'allowParallelInProgress': True}`。）
+
+## 二、角色登记队列：刷屏 + 会错位
+
+- 症状：日志每分钟刷若干行 `角色队列里有过期条目（派发后 30 分钟没等到回合），已丢弃: private:…`，几小时几百行；一条崩溃日志里 107 行。
+- 根因一（刷屏）：`turn/start` 的清过期循环**每丢一条打一行 warn**，积压上百条就是上百行，把真正有用的行冲掉。
+- 根因二（真隐患）：`pendingTurnRoles/Origins/At` 这三条队列只在「派发」时 push、在「回合开始」时 shift。只要出现「派发了但没产生回合」（宿主合并排队消息、回合被别处撤掉但没发 `agent/inbox/spliced`），队列就会**一直变长并错位**——后面的回合会顺手取走前面那条的角色，最坏是普通成员那一轮拿到管理员（能写文件、能往管理员目录发媒体）。
+- 修法：
+  - 清过期改成**一次一条汇总**，并且同一个会话 10 分钟只报一次（`chat.staleRoleWarnAt`）。
+  - 队列加**硬上限 16 条**（`turnRoleQueueMax` 可覆盖，默认 16）：超了从队头丢最老的，宁可退回「成员」这个安全默认。
+- 新增 `test/role-queue.test.mjs`（3 条静态守卫：不再逐条打日志、有冷却、上限循环三条队列同步摘）。测试 193 → **196 绿**。
+
+生效：`lib/*.js` 是静态 import、`cordis.patch.yml` 在挂载时读 —— **两处都要重启 DSH 才生效**。重启后怎么算好：启动日志里不再出现 `agent preset mount failed`，跑一天日志里不再出现「角色队列里有过期条目」那一串。# 0.5.37 — 2026-11-19
 
 **修一次会把整个 DSH 打死的崩溃：看一条已经删掉的 B站 视频**（哥哥 11-19 报「应用无法启动或已意外停止」）。
 

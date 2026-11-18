@@ -75,3 +75,7 @@
           name: '@deepseek-ai/dsh-tool-ask-user'
         - id: tool-todo
           name: '@deepseek-ai/dsh-tool-todo'
+          # 11-19：这个键在新版宿主里是必填的（z.boolean().required()），
+          # 漏了会让整个预设挂载失败、工具静默回退到全局层 —— 也就是沙箱形同虚设。
+          config:
+            allowParallelInProgress: true
