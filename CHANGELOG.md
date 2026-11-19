@@ -1,3 +1,21 @@
+# 0.5.43 — 2026-11-19
+
+**第二轮全盘审计（陪伴核心 + 工具/入站）挑出的真 bug，逐条修掉。**
+
+- **连发合并派发不再能把宿主带下去**（`lib/burst.js`）：`flush()` 是 setTimeout 回调，`dispatch` 是 async，以前既不 await 也不 catch —— 一 reject 就是未捕获拒绝，宿主当致命错误退出（和 11-19 那次 video-look 崩溃同一类）。现在包 `Promise.resolve(...).catch(...)`。
+- **限流不再一条消息吃两格**（`lib/inbound.js`）：入口处判一次、I/O 前又判一次，而 `rateLimited()` 一进来就占配额 —— 成员实际只有配置的一半额度。现在成员只在入口占、管理员只在前置占。
+- **口味账不再双倍衰减**（`lib/companion/taste.mjs`）：整本账先乘一次 `DECAY`，被打分那条又乘一次（0.98²）。改成直接加 delta；5 分轮也把衰减后的账落盘（以前直接 return，白算）。
+- **评分不再反复记到同一批视频上**（`lib/companion/app.mjs`）：`bucket.lastPicks` 消费完立刻清空 —— 以前之后每个用户轮（每轮都带 `[SCORE]`）都会再记一遍同一批，最多把 ±20 灌满。
+- **免打扰最后 1 分钟不再丢**（`lib/companion/period.mjs`）：`formatHM` 上限是 24*60-1，`24:00` 存回去变 `23:59`；改成允许 1440。
+- **定时话头不会重复触发**（`lib/companion/followup.mjs`）：重排前先 `clearTimeout` 旧的（fire 在飞时 map 里已无自己，cancel 清不到 → T2/T3 同时存在）；`persist()` 的写盘结果交回 `request()`，写失败会 log 并回 `saved:false`。
+- **旧版 state.json 迁移只做一半**（`lib/companion/state.mjs` + `lib/companion/tick.mjs`）：迁移只在内存里做，`merge()` 那次读没传 legacyKey → 老权重被塞进 `_default` 幽灵桶、真会话从 w=0 开始。现在 tick 读盘带 `migrate=true`，就地写回。
+- **「生成客户端配置」终于带令牌**（`lib/companion/app.mjs`）：`accessToken` 不在 `getConfig` 白名单里（桥特意不放），`bubbleToken()` 以前只查 getConfig → token 配好了这里永远是空，`urlWithToken` 不带 `?access_token=`、SnowLuma 片段里 accessToken 也是空。现在先问 `plainToken()`。
+- **settings.json 读坏不再静默清空**（`lib/index.js`）：以前解析失败回 `{}`，接着任何一次保存就把文件覆盖成只剩这次改的几项。现在另存一份 `.broken-<时间戳>` 并告警。
+- **转发/卡片/参数三个小口**（`lib/tools.js`）：`qq_send_card` 的 `as_card` 封面以前只判 http(s)（私网/环回也能塞，等于盲 SSRF），改走 `checkedImageUrl`；`qq_send_forward` 超长以前被下游静默截断却回「已发送」，现在截断并回报 `truncated`；`qq_napcat_api` 不再把数组当 params；`bili_pick_video` 补上 `requireAdminCaller`（同类 bili_* 都有）。
+- **两个边界**：`wrapUserMessage` 的 `qq` 属性只留数字（以前 userId 原样拼，非规范桥能闭合属性伪造来源）；`splitPlainText` 的代理对保护 `cut > 1` → `cut > 0`（`maxChars=1` 时不再切半个 emoji）。
+- **审计提了但故意不修**：`lib/media.js` 里 get_image 解析出的 `file://` 不加媒体目录围栏 —— 那个路径是 OneBot 自己路由出来的（NapCat cache），加了会把「群友发的图」全挡掉；已就地写注释说明。
+- **测试**：新增 `test/p2-audit-20261119.test.mjs`（12 条静态守卫），236 绿。
+
 # 0.5.42 — 2026-11-19
 
 **两个「账」的 bug：口味账旧分永不掉、搜索候选补不够。**
