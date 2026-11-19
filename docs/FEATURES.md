@@ -1,5 +1,5 @@
 ---
-title: 泡泡 · 功能与关系全景（0.5.44）
+title: 泡泡 · 功能与关系全景（0.5.46）
 markmap:
   initialExpandLevel: 2
   colorFreezeLevel: 2
