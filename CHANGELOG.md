@@ -1,3 +1,13 @@
+# 0.5.44 — 2026-11-19
+
+**哥哥点名的三件事：`[AT 23:30]` 真排程、明文令牌接口上闸、发过的视频记标题。**
+
+- **`[AT 23:30]` 真排了**（`lib/markers.js` 新增 `matchAt`、`lib/companion/prompt.mjs` 新增 `readAt`、`lib/companion/app.mjs` 的 `armMoreHook` 先 AT 再 LATER）：11-09 砍过这种写法，之后一直是「能剥、不排、静默丢弃」——她在提示词里以为能用，写了却没反应。现在按钟点排一条定时话头：只认钟点不认日期、那个点已经过了就不排（不擅自挪到明天）、太近按 60 秒；`followup.request(chatId, sec, { long: true })` 把上限放到 24 小时（否则 `followupMaxHours` 默认 12 小时会把 23:30 夹成 12 小时后）。AT 与 LATER 同时出现时 AT 优先。
+- **两个会吐令牌的接口上闸**（`lib/companion/app.mjs` 新增 `panelOnly`）：`GET /setup/token` 回明文令牌、`GET /client-config` 带 `?access_token=`，以前只判同源 —— 不带 `Origin` 的请求直接放行，本机任何摸到端口的进程都能读走。现在要自定义头 `x-bubble-panel: 1`；白送的好处是浏览器跨站 `fetch` 带自定义头必须先过 CORS 预检，预检这边不放行，网页脚本拿不到。面板自己的 `jget`/`jpost` 统一带头。
+- **发过的视频记标题**（`lib/companion/video-log.mjs` 新增 `titlesFile`/`rememberTitles`/`titleOf`）：记账发生在「真发出去」那一刻，那时不该再联网查标题；所以候选生成时（`lib/companion/adapters/bili.mjs`）就把 `bvid → 标题/UP` 记进 `$DSH_HOME/bubble/video-titles.json`（只留最近 300 条），`app.mjs` 的发送钩子记账时顺手带上。以前「发过的视频」只有一串 BV 号。
+- **文档同步**：`docs/ARCHITECTURE.md` 标记表、`docs/FEATURES.md` 已知取舍与「能做什么」全部改回「AT 真排」；导图 HTML 重新生成。
+- **测试**：新增 `test/at-marker.test.mjs`（8 条：秒数换算、写法容错、过了点不排、太近按 60 秒、剥离、LATER 不受影响、标题小抄读写与 300 条上限、两个令牌接口的闸），244 绿。
+
 # 0.5.43 — 2026-11-19
 
 **第二轮全盘审计（陪伴核心 + 工具/入站）挑出的真 bug，逐条修掉。**

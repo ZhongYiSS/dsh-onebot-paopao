@@ -67,7 +67,7 @@
 | `limit.mjs` | 滑动窗口限流 + 距离下次可发多久 |
 | `period.mjs` | 时段划分与免打扰（`24:00` 合法） |
 | `inbox.mjs` | 来料收件箱（B站 动静先落这里，等下一拍照话头注入） |
-| `followup.mjs` | 定时话头（`[LATER n]` 的定时器与每日配额；`[AT hh:mm]` 写法已砍） |
+| `followup.mjs` | 定时话头（`[LATER n]` 与 `[AT hh:mm]` 的定时器、每日配额；AT 走 `opts.long` 把上限放到 24 小时） |
 | `chatroll.mjs` | 「聊天强制事件」：每轮独立掷，抽到就注入「这轮必须…」 |
 | `taste.mjs` | 口味帐：哪个 UP/关键词给过高分 |
 | `ledger.mjs` | 积分流水（`ledger.jsonl`，8MB/60 天滚动，小时折叠） |
@@ -141,7 +141,7 @@ binding 关 / 无 profile / releaseBase 非法 → return
 - **来料**（B站 私信/@/回复）：`bili-watch.mjs` → `pushInbox(home, chatId, items)` → `inbox.json` → 下一拍照话头里带「B站 有动静」，`origin: 'inbox'`。
 - **追聊**（会话自己写 `[LATER 25]`）：`followup.mjs` 起 `setTimeout`（`unref`），到点 `ticker.tick(chatId, {followup:true})`；受 `followupPerDay` / `followupMaxHours` 约束，**只受免打扰管、不受限流管**；`restore()` 会把过点的挪到 5 秒后。
   - **0.5.25 起**：到点那一拍如果被跳过（`busy` 90 秒 / `quiet` 10 分钟 / `off` 5 分钟 / `notyet` 1 分钟 / `nochat` 5 分钟），会**按原因重排**而不是蒸发，最多 12 次；`restart()` 的开启分支也会 `restore()`（关掉再打开不丢排程），`restore()` 幂等（已在计时里的 chatId 跳过）。
-- **`[AT hh:mm]`（「到几点再叫我」）已在 11-09 砍掉**：`prompt.mjs` 的 `readLater` 只认 `[LATER n]`（分钟），`[AT …]` 返回 `null`，`test/core.test.mjs` 有一条断言钉着。别再照老文档实现它。
+- **`[AT hh:mm]`（「到几点再叫我」）在 11-09 砍过一次，2026-11-19 哥哥选「甲」又做回来了**：`prompt.mjs` 新增 `readAt()`（只认钟点、不认日期；那个点已经过了就返回 `null`，不擅自挪到明天；太近按 60 秒），`app.mjs` 的 `armMoreHook` 先试 AT、再试 `[LATER n]`，`followup.request(chatId, sec, { long: true })` 把上限放到 24 小时（不然 `followupMaxHours` 默认 12 小时会把 23:30 夹成 12 小时后）。测试在 `test/at-marker.test.mjs`。
 
 ### 3.4 消息进出 QQ
 
@@ -227,7 +227,7 @@ s = clamp(round(score/10 + (inbound ? inboundBonus : 0)), 0, 12)
 |---|---|---|---|
 | `[HOLD]` | `bridge.bubbleHoldsTurn` + `sendToChat` | 这一轮**一个字都不发**（但分照收、账照扣） | `lib/bridge.js:545`（判定）、`:473`（剥除） |
 | `[SCORE n]` | `bridge.noteBubbleScore` | 她给这一轮打 0~12 分，插件剥掉不发 | `lib/bridge.js:513` |
-| `[LATER n]` | `bridge.noteBubbleMore` → `followup.request` | 过 n 分钟再叫醒一轮；**单位认 `m`/`s`/`分钟`/`秒`**，`[AT hh:mm]` 已砍（只剥不认） | `lib/markers.js` → `lib/bridge.js:494` |
+| `[LATER n]` / `[AT hh:mm]` | `bridge.noteBubbleMore` → `followup.request` | 过 n 分钟（单位认 `m`/`s`/`分钟`/`秒`）或到某个钟点再叫醒一轮；AT 上限 24 小时，过了点不排 | `lib/markers.js` → `lib/bridge.js:494` |
 | `[SKIP]` | —— | **已删除**，只剩发送前顺手剥掉（老回复残留） | `lib/bridge.js:473` |
 
 闸门（防止自己半夜给自己排卡）：
@@ -516,7 +516,7 @@ adminUsers（含 ownerQQ 合并）  → 完全权限（agentPreset，默认 stan
 - `readBody` 坏 JSON 静默成功（现在 `rejectBadJson()` 返回 400，`/config`、`/ext`、`/cue` 都调了）
 - `POST /config` 吃空 `profiles`（现在先过滤空项，空了直接忽略）
 - `loadExt` 空 catch（现在会把错误画成错误卡）
-- `[AT hh:mm]` 定时写法（已砍，只留 `[LATER n]`）
+- ~~`[AT hh:mm]` 定时写法~~（11-19 已做回来，见 §14 标记表）
 - **0.5.27（清 §14 剩的小毛刺）**：设置覆盖逐键校验改用 `settingTypeOk()`（0.5.26 用 `Config.safeParse` 是个错误——宿主 schemastery 没这个方法，导致 `settings.json` 全被丢弃）；关键词冷却挪到投递之后；`setConfig` 加类型校验；`[HOLD]` 只认独立成行/结尾；图额度按短窗口扣；`/config` 只在节拍签名变化时 `restart()`；`/cue/preview` 坏 JSON 回 400；`ChatRollsCard` 失败回滚；`queueNoticeEnabled` 补进 schema。
 
 - **0.5.26（按外部《功能体检_2026-11-14》修的 26 处，注释里都写了「11-14 体检 编号」）**：
