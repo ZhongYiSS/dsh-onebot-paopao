@@ -59,6 +59,46 @@ const ALLOW = new Set([
 /** 不该被打包的文件名。 */
 const BAD_NAMES = [/\.bak-/, /\.new$/, /\.orig$/, /\.log$/, /\.tmp$/];
 
+/** .gitignore 里被忽略的本地文件不参与体检（它们本来就不会出仓库）。 */
+const IGNORE = (() => {
+  const rules = [];
+  let text = '';
+  try {
+    text = readFileSync(join(ROOT, '.gitignore'), 'utf8');
+  } catch {
+    return rules;
+  }
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line === '' || line.startsWith('#')) continue;
+    if (line.endsWith('/')) {
+      rules.push({ dir: line.slice(0, -1) });
+      continue;
+    }
+    if (line.includes('*')) {
+      const body = line
+        .split('**').join('\u0000')
+        .replace(/[.+^$(){}|[\]\\]/g, '\\$&')
+        .split('\u0000').join('.*')
+        .split('*').join('[^/]*');
+      rules.push({ re: new RegExp('^' + body + '$') });
+      continue;
+    }
+    rules.push({ exact: line });
+  }
+  return rules;
+})();
+
+function ignoredPath(rel) {
+  const posix = rel.split(sep).join('/');
+  for (const rule of IGNORE) {
+    if (rule.dir && (posix === rule.dir || posix.startsWith(rule.dir + '/'))) return true;
+    if (rule.exact && (posix === rule.exact || posix.endsWith('/' + rule.exact))) return true;
+    if (rule.re && (rule.re.test(posix) || rule.re.test(posix.split('/').pop()))) return true;
+  }
+  return false;
+}
+
 function walk(dir, out = []) {
   let entries;
   try {
@@ -72,7 +112,7 @@ function walk(dir, out = []) {
       if (entry.name === 'node_modules' || entry.name === 'tmp') continue;
       walk(full, out);
     } else if (entry.isFile()) {
-      out.push(full);
+      if (!ignoredPath(relative(ROOT, full))) out.push(full);
     }
   }
   return out;

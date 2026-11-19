@@ -1,3 +1,9 @@
+## 0.5.46（2026-11-19）
+
+### 新增（文档工具，不影响插件运行）
+- `scripts/sync-docs.mjs`：把 Obsidian 库里的两份泡泡笔记同步回仓库 `docs/`，并重生成 `docs/FEATURES.html`。库路径写在 `scripts/sync-docs.local.json`（已 gitignore）或环境变量 `BUBBLE_DOCS_VAULT`；markmap 走 PATH 或 `MARKMAP_BIN`。`--check` 只报差异。
+- `scripts/guard-publish.mjs`：体检时尊重 `.gitignore`（本地配置本来就不出仓库，不该被判成本机痕迹）。
+
 ## 0.5.45（2026-11-19）
 
 ### 修

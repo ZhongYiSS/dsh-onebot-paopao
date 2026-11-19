@@ -1,3 +1,4 @@
 node_modules/
 *.bak-*
 tmp/
+scripts/sync-docs.local.json
