@@ -1,3 +1,16 @@
+# 0.5.40 — 2026-11-19
+
+**同一次审计的 P1：既存数据会越长越大、两个旋钮是死的、三个开关藏在代码里、几处显示不对。**
+
+- **`history.jsonl` 会滚了**：以前只追加不重写（面板每 8 秒读一次 `/state`，每次整份读，当时已 370KB）。现在超 4MB 滚一次只留最后 4000 行；`readHistory` 只读文件尾部 512KB（从中间截进来时丢掉半截首行）。
+- **「缓存留几天」真生效**：`video-look` 的缓存条目里一直记着 `ttlDays`，读的时候却只看配置 → 现在两边取小的。
+- **看视频三个开关进配置**（`lib/companion/app.mjs`）：`videoSendDepth`（quick/normal/deep，默认 deep）、`videoDeepOnSend`（准备阶段要不要顺手深看第一条）、`videoSubtitle`；同时把 QQ 侧那批（宫格/帧数/缓存天数/工作目录天数/转写）并进准备器的 `cfg` —— 以前 `prepareBili` 深看时永远用 `video-look` 的硬默认。`bili_pick_video` 工具改成 `videoDeepOnSend: false`（挑候选不该顺手跑一分钟识图）。
+- **口味账不再记错人**：`tick.mjs` 的 `lastPicks` 以前只在有候选时覆盖，抽到「说句话」这类轮会继续挂着上一轮的视频；现在每拍都重写（没候选就是空数组）。
+- **`[LATER]` 在她自己抽卡开口那轮也能排了**：`noteBubbleMore` 以前只认 `lastInboundAt`（**他**说话的时刻），抽卡轮他多半没说话 → 标记被剥、静默丢弃。现在 `dispatchFollowup` 记 `lastBubbleDispatchAt`，闸门取两者较新的。
+- **面板三个框不再「存了又变空」**：`mode` / `port` / `host` 进 `getConfig` + `setConfig`（改完要重启，面板已写明）。
+- **forward 模式「监听」那盏灯**：原来恒灰（forward 没有本地监听 socket，`address()` 永远 undefined）→ 现在看连没连上。
+- `bili_pick_video` 的关键词游标落盘（`bubble/bili-pick.json`），不再每轮从第一个词开始。
+
 # 0.5.39 — 2026-11-19
 
 **按功能导图做全盘核对，第一批是 P0：五条权限洞 + 两条功能直接失效。**
