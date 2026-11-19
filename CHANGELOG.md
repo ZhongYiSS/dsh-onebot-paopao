@@ -1,3 +1,11 @@
+## 0.5.45（2026-11-19）
+
+### 修
+- **`[AT hh:mm]` 走不通**：`lib/bridge.js` 的 `noteBubbleMore` 门禁只放行 `[LATER]`，只写 AT 的回复在门口就被丢掉，0.5.44 的 AT 排程根本调不到。现在 `!hasLater(s) && !hasAt(s)` 才 return，`lib/markers.js` 导出 `hasAt()`，加了一条静态守卫测试。
+
+### 文档
+- `docs/FEATURES.md` 重新核对：事件池份数改成真实的 100 份（九槽）；口味账衰减口径（每次记分整本 ×0.98，不是每轮）；补全 23 个 GET / 20 个写接口与按钮对应；数据文件清单补全（`video-titles.json`、`followup.jsonl`、`scores.json`、`history.jsonl`、`client-errors.log` 等）；新增三节「生效方式：刷新 / 重启」「面板上还没有入口的键（9 个）」「改动高危清单（14 条，带 file:line 与失败模式）」；补一条 ⚠ 缺口：`[SCORE]`/`[LATER]`/`[AT]` 三个标记没有任何一处写给会话看。
+
 # 0.5.44 — 2026-11-19
 
 **哥哥点名的三件事：`[AT 23:30]` 真排程、明文令牌接口上闸、发过的视频记标题。**

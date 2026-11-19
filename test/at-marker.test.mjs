@@ -42,6 +42,15 @@ test('[AT] 太近按 60 秒算，免得「就是现在」排不上', () => {
   assert.equal(readAt('[AT 10:00]', at(10, 0) - 20_000), 60)
 })
 
+test('[AT] 网关要放行：只写 AT 也必须能触发排队（不然改了也走不通）', () => {
+  const src = readFileSync(join(ROOT, 'lib/bridge.js'), 'utf8')
+  const gate = src.slice(src.indexOf('noteBubbleMore(chatId, text)'), src.indexOf('noteBubbleMore(chatId, text)') + 800)
+  assert.ok(gate.includes('hasAt(s)'), 'noteBubbleMore 要认 AT')
+  assert.ok(gate.includes('hasLater(s)'), 'LATER 不能丢')
+  const mk = readFileSync(join(ROOT, 'lib/markers.js'), 'utf8')
+  assert.ok(mk.includes('export function hasAt('), 'markers 要导出 hasAt')
+})
+
 test('[AT] 标记照样从正文剥干净', () => {
   assert.equal(stripMarkers('晚点说 [AT 23:30]'), '晚点说')
 })
