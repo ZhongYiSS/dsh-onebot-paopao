@@ -1,3 +1,47 @@
+# 0.5.39 — 2026-11-19
+
+**按功能导图做全盘核对，第一批是 P0：五条权限洞 + 两条功能直接失效。**
+
+## 一、防抖合并把成员的话并进管理员轮（提权）
+
+- 症状：群里成员发的话被以 `admin` 身份跑一轮 —— 能写文件、媒体围栏整个不设。
+- 根因：`lib/inbound.js` 的 `queueCoalesced` 早就算好了 `entry.role`（全部 admin 才算 admin），但 `fire` 只 `flush(merged, entry.plain)` 两个参数，`entry.role` **算了没人用**；`proceed` 沿用的是**开窗那条消息**的 role。
+- 触发：主人与成员在 `debounceMs`（默认 2 秒）内先后说话。
+- 修法：`flush(merged, entry.plain, entry.role)`；`proceed(mergedText, mergedPlain, mergedRole)` 里算 `effRole` 并用它去 `burstOffer` / `interceptBusyTurn` / `dispatchFollowup`。
+
+## 二、连发缓冲同款（成员搭上管理员那轮）
+
+- 根因：`lib/burst.js` 每次 `state.role = role`，`flush` 按**最后一条**的身份派发，而 `texts` 里混着成员的内容。
+- 修法：改逐条记 `state.roles`，`flush` 时 `roles.every(r => r === 'admin')` 才算 admin。
+
+## 三、陪伴/来料注入的轮恒为管理员
+
+- 症状：群是唯一启用绑定（或对群调 `dispatch`）时，群里会出现一个**完全权限**的轮。
+- 根因：`lib/companion/deliver.mjs` 硬写 `'admin'`；`onebotApi.dispatch` 原样透传 role。
+- 修法：投递按目标会话定角色（`group:` → `member`，私聊 → `admin`）；`lib/index.js` 的 `dispatch` 挡掉非法值。
+
+## 四、`qq_video_look` 完全没有围栏
+
+- 症状：群成员一轮就能让它「看」`C:\...\任意.mp4`，或 `http://127.0.0.1:8643/`，插件真去跑 yt-dlp/ffmpeg，再把画面描述回群里。
+- 修法：本地路径走发文件同一套闸（新拆出 `fencedMediaPath`，`fencedMediaFile` 复用它），URL 走 `checkedImageUrl`（只许 http(s)，私网/环回拒），`depth` 只认 quick/normal/deep。
+
+## 五、主动模式的闸可以绕
+
+- 根因：`qq_proactive_start` 写成「拿不到 callerChat 就放行」（子代理也能开）；`qq_proactive_stop` 一个校验都没有。
+- 修法：两个都过 `requireAdminCaller(..., { allowLocal: true })`；`requireAdminCaller` 补「子代理一律不行」，本机 Web 会话仍可用。
+
+## 六、发过的视频照样再发（30 天去重 + 黑名单全失效）
+
+- 根因：写账用泡泡家目录（`$DSH_HOME/bubble/videos.json`），读账却传 `dshHome()` → 去读 `$DSH_HOME/videos.json`（根本不存在）。
+- 修法：`prepareBili` 单独收 `bubbleHome`，`readVideos(bubbleHome)`；`lib/companion/app.mjs` 与 `lib/tools.js` 两个调用点都传。
+- 验收：实跑一次 `prepareBili`，黑名单 11 条 / 30 天内 3 条一条都没出现。
+
+## 七、字幕通道整条死
+
+- 根因：`lib/video-look.js` 调 `subtitleText(bvid, cred, '', 2000)`，mixin 传空串 → wbi 签名错；`bili.mjs` 又不检查 `p.code`，静默返回空 → 每次都误判「没字幕」，quick 档只剩标题，normal/deep 白跑一次 ASR。
+- 修法：`subtitleText` 的 `mixin` 缺省时**自己取 wbi 密钥**签名；接口 `code !== 0` 直接返回空；`lib/video-look.js` 的 quick 档改成「真拿到东西才写缓存」。
+- 验收：不传 mixin 实跑，`BV1WnWm6qEdi` / `BV13hWj68ELy` 都在 1 秒内取到真字幕。
+
 # 0.5.38 — 2026-11-19
 
 **两处从崩溃日志里捞出来的毛病：群聊沙箱其实一直没挂上、角色登记队列刷屏还错位。**
