@@ -100,7 +100,7 @@ export declare function sanitizeNickname(nickname: string): string;
  * @param mentioned - whether the bot was mentioned.
  * @returns the prefix string (never empty: always at least the time stamp).
  */
-export declare function buildGroupMessagePrefix(nickname: string, userId: string, mentioned: boolean): string;
+export declare function buildGroupMessagePrefix(nickname: string, userId: string, mentioned: boolean, ownerMentioned?: boolean): string;
 /** Soft-cap prefix for restricted (member-role) group users. */
 export declare const RESTRICTED_PREFIX = "[群成员] ";
 /** 老版本用过的那一版，只为兼容。 */
