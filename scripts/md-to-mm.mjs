@@ -53,7 +53,15 @@ function plain(s) {
     .trim()
 }
 
-const lines = readFileSync(inPath, 'utf8').split(/\r?\n/)
+const allLines = readFileSync(inPath, 'utf8').split(/\r?\n/)
+
+// YAML front matter（`---` 开头到下一个 `---`）是给 markmap / Obsidian 读的配置，
+// 不是文档内容；不跳过就会变成导图顶上几个「---」「title:」「markmap:」垃圾节点。
+const lines = (
+  allLines[0]?.trim() === '---'
+    ? allLines.slice(allLines.findIndex((l, i) => i > 0 && l.trim() === '---') + 1)
+    : allLines
+).filter((l) => !/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(l)) // 正文里的分隔线不是内容
 
 /** 树节点：{ text, depth, children } */
 const root = { text: rootTitle, depth: -1, children: [] }
