@@ -86,7 +86,8 @@ for (const [srcName, dst] of PAIRS) {
 if (changed > 0 && !checkOnly) {
   const cli = process.env.MARKMAP_BIN || 'markmap'
   try {
-    execFileSync(cli, ['docs/FEATURES.md', '--offline', '-o', 'docs/FEATURES.html'], { cwd: ROOT, shell: true, stdio: 'pipe' })
+    // --no-open：不加这个，markmap 生成完会自己弹一个浏览器窗口（11-19 就弹过一次）
+    execFileSync(cli, ['docs/FEATURES.md', '--offline', '--no-open', '-o', 'docs/FEATURES.html'], { cwd: ROOT, shell: true, stdio: 'pipe' })
     console.log('已重新生成 docs/FEATURES.html（' + statSync(join(ROOT, 'docs/FEATURES.html')).size + ' 字节）')
   }
   catch (error) {
