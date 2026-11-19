@@ -1,3 +1,13 @@
+# 0.5.41 — 2026-11-19
+
+**接客户端这件事的普适化：不管你的 OneBot 客户端把令牌放头里还是拼在地址上，都能连。**
+
+- **令牌两种写法都认**（`lib/connection.js` 新增并导出 `requestToken()`）：优先 `Authorization: Bearer xxx`，没有就取 `?access_token=xxx`（含 URL 解码）。
+  以前只认头 —— 只会拼 URL 的客户端连上来一律 401，用户看到的只是「一直连不上」，还查不出原因。
+- **「生成客户端配置」多给一份带令牌的地址**：`GET /api/bubble/client-config` 多了 `urlWithToken`，通用那段说明改成「能填 token 就填 token，只能填地址就用带 ?access_token= 的」。
+- **测试**：新增 `test/reverse-token.test.mjs`（6 条：头优先、大小写与空格、URL 令牌、URL 解码、都没有、坏 URL 不抛）。
+- **文档**：`docs/FEATURES.md` 的采样说明改成「按预算分帧，不是 1 秒 1 帧」。
+
 # 0.5.40 — 2026-11-19
 
 **同一次审计的 P1：既存数据会越长越大、两个旋钮是死的、三个开关藏在代码里、几处显示不对。**
