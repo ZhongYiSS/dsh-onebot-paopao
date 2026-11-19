@@ -1,3 +1,9 @@
+## 0.5.48（2026-11-19）
+
+### 改（文档工具，不影响插件运行）
+- `scripts/sync-docs.mjs` 不再生成 `docs/FEATURES.html`：只把库里的两份笔记同步回 `docs/FEATURES.md` / `docs/ARCHITECTURE.md`。哥哥定的口径是「有 Freeplane 就直接看图，HTML 那套不要了」，markmap 依赖随之去掉（不再 `execFileSync`，也不再需要 `MARKMAP_BIN`）。
+- `docs/README.md` 按同一口径重写：删掉 Obsidian / markmap 的那套步骤，改成「读 md + `md-to-mm.mjs` 出 `.mm` 给 Freeplane 看」，并标明旧命令已退役。
+
 ## 0.5.46（2026-11-19）
 
 ### 新增（文档工具，不影响插件运行）
